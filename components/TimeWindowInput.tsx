@@ -2,28 +2,36 @@
 
 import { useState } from "react";
 import { validateTimeWindow } from "@/lib/time-utils";
+import CalendarPicker from "./CalendarPicker";
 
 interface TimeWindowInputProps {
-  onConfirm: (arrivalTime: string, departureTime: string, date: string) => void;
+  onConfirm: (arrivalTime: string, departureTime: string, startDate: string, endDate: string) => void;
   loading?: boolean;
 }
 
-function getTodayDate(): string {
-  const d = new Date();
-  return d.toISOString().split("T")[0]; // YYYY-MM-DD
-}
-
 export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputProps) {
-  const [date, setDate] = useState(getTodayDate());
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
   const [arrival, setArrival] = useState("09:00");
   const [departure, setDeparture] = useState("18:00");
   const [error, setError] = useState<string | null>(null);
 
+  function handleDateSelect(start: string, end: string | null) {
+    setStartDate(start);
+    setEndDate(end);
+    setError(null);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!date) {
-      setError("Eh, pick a date lah! When you going?");
+    if (!startDate) {
+      setError("Eh, pick your trip dates lah! Tap a start date on the calendar.");
+      return;
+    }
+
+    if (!endDate) {
+      setError("Now tap an end date — or tap the same day for a day trip!");
       return;
     }
 
@@ -32,31 +40,24 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
       setError(result.error);
       return;
     }
+
     setError(null);
-    onConfirm(arrival, departure, date);
+    onConfirm(arrival, departure, startDate, endDate);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-4">
+    <form onSubmit={handleSubmit} className="w-full space-y-5">
+      {/* Instructions */}
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        Set your trip date and time window so we can plan your day properly lah!
+        Pick your trip dates, then set your daily start and end times lah!
       </p>
 
-      {/* Date picker */}
-      <div className="space-y-1">
-        <label htmlFor="trip-date" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
-          Trip Date
-        </label>
-        <input
-          id="trip-date"
-          type="date"
-          value={date}
-          onChange={(e) => { setDate(e.target.value); setError(null); }}
-          min={getTodayDate()}
-          disabled={loading}
-          className="w-full min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-base text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
-        />
-      </div>
+      {/* Calendar */}
+      <CalendarPicker
+        startDate={startDate}
+        endDate={endDate}
+        onSelect={handleDateSelect}
+      />
 
       {/* Time pickers */}
       <div className="grid grid-cols-2 gap-3">
@@ -92,8 +93,8 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
 
       <button
         type="submit"
-        disabled={loading}
-        className="w-full min-h-[44px] rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white active:scale-95 transition-transform disabled:opacity-50"
+        disabled={loading || !startDate || !endDate}
+        className="w-full min-h-[44px] rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? "Generating lah..." : "Generate My Itinerary 🗓️"}
       </button>

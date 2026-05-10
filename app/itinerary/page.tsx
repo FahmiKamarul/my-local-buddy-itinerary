@@ -11,6 +11,20 @@ import type { Card, ItineraryResult } from "@/lib/schemas";
 
 type RouteType = "optimized" | "makan-focused" | "santai";
 
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatTripDates(): string {
+  const start = sessionStorage.getItem("mybuddy_trip_start");
+  const end = sessionStorage.getItem("mybuddy_trip_end");
+  if (!start) return "";
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const startStr = `${sd} ${MONTH_SHORT[sm - 1]}`;
+  if (!end || end === start) return startStr;
+  const [ey, em, ed] = end.split("-").map(Number);
+  const endStr = `${ed} ${MONTH_SHORT[em - 1]}${ey !== sy ? ` ${ey}` : ""}`;
+  return `${startStr} – ${endStr}`;
+}
+
 export default function ItineraryPage() {
   const router = useRouter();
   const [acceptedCards, setAcceptedCards] = useState<Card[] | null>(null);
@@ -33,7 +47,7 @@ export default function ItineraryPage() {
     }
   }, []);
 
-  async function handleGenerateItinerary(arrivalTime: string, departureTime: string, date: string) {
+  async function handleGenerateItinerary(arrivalTime: string, departureTime: string, startDate: string, endDate: string) {
     if (!acceptedCards) return;
 
     setShowTimeInput(false);
@@ -42,8 +56,9 @@ export default function ItineraryPage() {
 
     const destination = sessionStorage.getItem("mybuddy_destination") ?? "Malaysia";
 
-    // Store the date for display
-    sessionStorage.setItem("mybuddy_trip_date", date);
+    // Store the dates for display
+    sessionStorage.setItem("mybuddy_trip_start", startDate);
+    sessionStorage.setItem("mybuddy_trip_end", endDate);
 
     try {
       const res = await fetch("/api/generate-itinerary", {
@@ -131,7 +146,7 @@ export default function ItineraryPage() {
           <div className="text-center space-y-1">
             <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Your Itinerary 🗓️</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {itinerary.destination} • {sessionStorage.getItem("mybuddy_trip_date") ?? ""} • {itinerary.arrivalTime} – {itinerary.departureTime}
+              {itinerary.destination} • {formatTripDates()} • {itinerary.arrivalTime} – {itinerary.departureTime}
             </p>
           </div>
 
