@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useMotionValue, useTransform } from "framer-motion";
+import { useEffect } from "react";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import type { Card } from "@/lib/schemas";
 
 interface SwipeCardProps {
@@ -8,22 +9,62 @@ interface SwipeCardProps {
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   isTop: boolean;
+  /** Programmatic exit triggered by button press */
+  triggerExit?: "left" | "right" | null;
 }
 
 const SWIPE_THRESHOLD = 100;
+const FLY_OUT_DISTANCE = 500;
 
-export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop }: SwipeCardProps) {
+export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop, triggerExit }: SwipeCardProps) {
   const x = useMotionValue(0);
 
   const rotate = useTransform(x, [-200, 200], [-18, 18]);
   const greenOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1]);
   const redOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0]);
 
-  function handleDragEnd(_: unknown, info: { offset: { x: number } }) {
-    if (info.offset.x > SWIPE_THRESHOLD) {
-      onSwipeRight();
-    } else if (info.offset.x < -SWIPE_THRESHOLD) {
-      onSwipeLeft();
+  // Handle programmatic exit (button press)
+  useEffect(() => {
+    if (!triggerExit) return;
+
+    const target = triggerExit === "right" ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE;
+
+    animate(x, target, {
+      type: "tween",
+      duration: 0.4,
+      ease: [0.4, 0, 0.2, 1],
+      onComplete: () => {
+        if (triggerExit === "right") {
+          onSwipeRight();
+        } else {
+          onSwipeLeft();
+        }
+      },
+    });
+  }, [triggerExit]);
+
+  function handleDragEnd(_: unknown, info: { offset: { x: number }; velocity: { x: number } }) {
+    const offset = info.offset.x;
+    const velocity = info.velocity.x;
+
+    // Use velocity to make it feel more natural
+    if (offset > SWIPE_THRESHOLD || velocity > 500) {
+      animate(x, FLY_OUT_DISTANCE, {
+        type: "tween",
+        duration: 0.3,
+        ease: [0.4, 0, 0.2, 1],
+        onComplete: onSwipeRight,
+      });
+    } else if (offset < -SWIPE_THRESHOLD || velocity < -500) {
+      animate(x, -FLY_OUT_DISTANCE, {
+        type: "tween",
+        duration: 0.3,
+        ease: [0.4, 0, 0.2, 1],
+        onComplete: onSwipeLeft,
+      });
+    } else {
+      // Snap back
+      animate(x, 0, { type: "spring", stiffness: 500, damping: 30 });
     }
   }
 
@@ -32,12 +73,13 @@ export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop }: Sw
   return (
     <motion.div
       style={{ x, rotate, position: "absolute", width: "100%", touchAction: "none" }}
-      drag={isTop ? "x" : false}
+      drag={isTop && !triggerExit ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.8}
+      dragElastic={0.9}
       onDragEnd={handleDragEnd}
       whileDrag={{ cursor: "grabbing" }}
-      animate={{ scale: isTop ? 1 : 0.95, y: isTop ? 0 : 12 }}
+      initial={isTop ? { scale: 1, y: 0 } : { scale: 0.95, y: 12 }}
+      animate={isTop ? { scale: 1, y: 0 } : { scale: 0.95, y: 12 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="select-none"
     >
@@ -90,7 +132,7 @@ export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop }: Sw
           )}
         </div>
 
-        {/* Swipe overlays */}
+        {/* Swipe overlays — visible during both drag and button-triggered exit */}
         <motion.div
           style={{ opacity: greenOpacity }}
           className="absolute inset-0 bg-green-400/30 rounded-3xl flex items-center justify-center pointer-events-none"

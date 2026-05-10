@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useState, useCallback } from "react";
 import SwipeCard from "./SwipeCard";
 import SwipeControls from "./SwipeControls";
 import type { Card, CardDeck } from "@/lib/schemas";
@@ -15,31 +14,38 @@ export default function SwipeCardStack({ deck, onComplete }: SwipeCardStackProps
   const [currentIndex, setCurrentIndex] = useState(0);
   const [acceptedCards, setAcceptedCards] = useState<Card[]>([]);
   const [answers, setAnswers] = useState<Record<string, "Yes" | "No">>({});
-  const [exiting, setExiting] = useState<"left" | "right" | null>(null);
+  const [triggerExit, setTriggerExit] = useState<"left" | "right" | null>(null);
+  const [animating, setAnimating] = useState(false);
 
   const cards = deck.cards;
   const total = cards.length;
   const isDone = currentIndex >= total;
 
-  function advance(card: Card, direction: "left" | "right") {
-    setExiting(direction);
-
+  // Called when the card finishes its fly-out animation (from drag or button)
+  const handleCardGone = useCallback((direction: "left" | "right") => {
+    const card = cards[currentIndex];
     const newAccepted = direction === "right" ? [...acceptedCards, card] : acceptedCards;
     const newAnswers = card.type === "question"
       ? { ...answers, [card.title]: direction === "right" ? "Yes" : "No" as "Yes" | "No" }
       : answers;
 
-    setTimeout(() => {
-      setExiting(null);
-      setAcceptedCards(newAccepted);
-      setAnswers(newAnswers);
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
+    setAcceptedCards(newAccepted);
+    setAnswers(newAnswers);
+    const nextIndex = currentIndex + 1;
+    setCurrentIndex(nextIndex);
+    setTriggerExit(null);
+    setAnimating(false);
 
-      if (nextIndex >= total) {
-        setTimeout(() => onComplete(newAccepted, newAnswers), 500);
-      }
-    }, 300);
+    if (nextIndex >= total) {
+      setTimeout(() => onComplete(newAccepted, newAnswers), 500);
+    }
+  }, [currentIndex, acceptedCards, answers, cards, total, onComplete]);
+
+  // Button press triggers programmatic exit
+  function handleButtonPress(direction: "left" | "right") {
+    if (animating || isDone) return;
+    setAnimating(true);
+    setTriggerExit(direction);
   }
 
   if (isDone) {
@@ -72,6 +78,7 @@ export default function SwipeCardStack({ deck, onComplete }: SwipeCardStackProps
 
       {/* Card stack */}
       <div className="relative" style={{ height: 460 }}>
+        {/* Background card (next) */}
         {nextCard && (
           <SwipeCard
             key={`card-${currentIndex + 1}`}
@@ -82,35 +89,22 @@ export default function SwipeCardStack({ deck, onComplete }: SwipeCardStackProps
           />
         )}
 
-        <AnimatePresence>
-          {!exiting && (
-            <motion.div
-              key={`card-${currentIndex}`}
-              style={{ position: "absolute", width: "100%" }}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{
-                x: exiting === "right" ? 400 : -400,
-                opacity: 0,
-                transition: { duration: 0.3 },
-              }}
-            >
-              <SwipeCard
-                card={topCard}
-                onSwipeLeft={() => advance(topCard, "left")}
-                onSwipeRight={() => advance(topCard, "right")}
-                isTop={true}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Top card — handles its own animation */}
+        <SwipeCard
+          key={`card-${currentIndex}`}
+          card={topCard}
+          onSwipeLeft={() => handleCardGone("left")}
+          onSwipeRight={() => handleCardGone("right")}
+          isTop={true}
+          triggerExit={triggerExit}
+        />
       </div>
 
       {/* Button controls */}
       <SwipeControls
-        onSwipeLeft={() => advance(topCard, "left")}
-        onSwipeRight={() => advance(topCard, "right")}
-        disabled={!!exiting}
+        onSwipeLeft={() => handleButtonPress("left")}
+        onSwipeRight={() => handleButtonPress("right")}
+        disabled={animating}
       />
     </div>
   );
