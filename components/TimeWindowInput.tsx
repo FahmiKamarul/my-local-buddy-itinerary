@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { validateTimeWindow } from "@/lib/time-utils";
+import CalendarPicker from "./CalendarPicker";
 
 interface TimeWindowInputProps {
-  onConfirm: (arrivalTime: string, departureTime: string, date: string) => void;
+  onConfirm: (arrivalTime: string, departureTime: string, startDate: string, endDate: string) => void;
   loading?: boolean;
 }
 
@@ -14,16 +15,28 @@ function getTodayDate(): string {
 }
 
 export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputProps) {
-  const [date, setDate] = useState(getTodayDate());
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
   const [arrival, setArrival] = useState("09:00");
   const [departure, setDeparture] = useState("18:00");
   const [error, setError] = useState<string | null>(null);
 
+  function handleDateSelect(start: string, end: string | null) {
+    setStartDate(start);
+    setEndDate(end);
+    setError(null);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!date) {
-      setError("Eh, pick a date lah! When you going?");
+    if (!startDate) {
+      setError("Eh, pick your trip dates lah! Tap a start date on the calendar.");
+      return;
+    }
+
+    if (!endDate) {
+      setError("Now tap an end date — or tap the same day for a day trip!");
       return;
     }
 
@@ -32,8 +45,9 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
       setError(result.error);
       return;
     }
+
     setError(null);
-    onConfirm(arrival, departure, date);
+    onConfirm(arrival, departure, startDate, endDate);
   }
 
   return (
