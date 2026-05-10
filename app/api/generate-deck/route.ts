@@ -35,18 +35,17 @@ function normalizePrice(price: string): string {
  * Determines how many cards to generate based on trip duration.
  */
 function getCardCount(tripDays: number): { total: number; questions: number; activities: number } {
-  if (tripDays <= 1) return { total: 10, questions: 3, activities: 7 };
-  if (tripDays <= 3) return { total: 13, questions: 4, activities: 9 };
-  return { total: 15, questions: 5, activities: 10 };
+  if (tripDays <= 1) return { total: 8, questions: 0, activities: 8 };
+  if (tripDays <= 3) return { total: 10, questions: 0, activities: 10 };
+  return { total: 12, questions: 0, activities: 12 };
 }
 
 /**
  * Schema for AI-generated card deck (used with generateObject).
- * Slightly relaxed compared to CardDeckSchema to give the AI room,
- * then we validate with the strict schema after.
+ * Only generates activity cards — questions are handled client-side.
  */
 const AICardSchema = z.object({
-  type: z.enum(["activity", "question"]),
+  type: z.literal("activity"),
   title: z.string().min(1).max(100),
   description: z.string().min(1).max(300),
   location: z.string().optional(),
@@ -96,26 +95,21 @@ ${preferences.some((p) => p.question.includes("nightlife") && p.answer === "Yes"
 
   return `You are MY Buddy, a hyperlocal Malaysian trip planner. You speak in Malaysian-English (Manglish) — use slang like "Lepak", "Ngam", "On-the-way", "Makan", "Santai", "Shiok", "Boleh", "lah", "lor", "leh" naturally in descriptions.
 
-Generate a card deck for a ${tripDays}-day trip to ${destination}, Malaysia.${preferencesContext}
+Generate ${counts.activities} activity cards for a ${tripDays}-day trip to ${destination}, Malaysia.${preferencesContext}
 
 Requirements:
-- Generate exactly ${counts.questions} Clarifying Question Cards (type: "question")
 - Generate exactly ${counts.activities} Activity Cards (type: "activity")
 - Each card description MUST contain at least one Malaysian slang term
 - Include culturally specific references (peak lunch traffic 12-2pm, hawker hours 7am-10pm, weekend crowds)
+- ALL cards must have type: "activity"
 
-For QUESTION cards:
-- Ask about MORE SPECIFIC travel preferences based on what we already know
-- Keep titles as questions (e.g. "Want to try durian?", "Prefer indoor or outdoor?")
-- Description should explain why this matters for the trip in Manglish tone
-- Do NOT repeat questions the user already answered in preferences
-
-For ACTIVITY cards, include ALL these fields:
+For EACH activity card, include ALL these fields:
+- type: "activity" (always)
 - title: Name of the attraction/activity
 - description: Fun Manglish description with slang
 - location: Specific location within ${destination}
 - baseDuration: Realistic time in minutes (include travel/parking buffer awareness)
-- price: Use "Free" or "RMX" or "RMX-RMY" format
+- price: Use "Free" or "RMX" or "RMX-RMY" format (e.g. "Free", "RM10", "RM5-RM15")
 - priority: "High" for must-visit, "Medium" for recommended, "Low" for nice-to-have
 - category: One of "Food", "Culture", "Nature", "Shopping", "Entertainment", "Other"
 
@@ -131,14 +125,6 @@ function generateMockDeck(destination: string, tripDays: number) {
   const uuid = () => crypto.randomUUID();
   const counts = getCardCount(tripDays);
 
-  const questionCards = [
-    { id: uuid(), type: "question" as const, title: "Do you like street food?", description: "Makan at hawker stalls is the best lah! Cheap and shiok." },
-    { id: uuid(), type: "question" as const, title: "Are you into history?", description: "Lepak at old heritage buildings and learn about the past lor." },
-    { id: uuid(), type: "question" as const, title: "Do you enjoy nature walks?", description: "Santai walks through parks and gardens — ngam for relaxing." },
-    { id: uuid(), type: "question" as const, title: "Want to try local desserts?", description: "Cendol, ais kacang, kuih — all the sweet makan spots boleh include!" },
-    { id: uuid(), type: "question" as const, title: "Are you a morning person?", description: "Lepak early can avoid the crowd lah — shiok to have places to yourself." },
-  ];
-
   const activityCards = [
     { id: uuid(), type: "activity" as const, title: "Jonker Street Night Market", description: "Makan your way through this famous night market — shiok giler!", location: "Jonker Street, Melaka", baseDuration: 90, price: "RM10-RM30", priority: "High" as const, category: "Food" as const },
     { id: uuid(), type: "activity" as const, title: "A Famosa Fort", description: "Lepak at this iconic Portuguese fort — on-the-way to other spots.", location: "Jalan Kota, Melaka", baseDuration: 30, price: "Free", priority: "Medium" as const, category: "Culture" as const },
@@ -150,12 +136,11 @@ function generateMockDeck(destination: string, tripDays: number) {
     { id: uuid(), type: "activity" as const, title: "Melaka Sultanate Palace", description: "Santai museum visit — boleh learn about the old Melaka kingdom.", location: "Jalan Kota, Melaka", baseDuration: 45, price: "RM5", priority: "Low" as const, category: "Culture" as const },
     { id: uuid(), type: "activity" as const, title: "Portuguese Settlement", description: "Makan fresh seafood by the sea — shiok dinner spot for sure!", location: "Portuguese Settlement, Melaka", baseDuration: 75, price: "RM20-RM50", priority: "Medium" as const, category: "Food" as const },
     { id: uuid(), type: "activity" as const, title: "Klebang Coconut Shake", description: "Lepak with the famous coconut shake — on-the-way if you're heading north.", location: "Klebang, Melaka", baseDuration: 20, price: "RM5", priority: "Low" as const, category: "Food" as const },
+    { id: uuid(), type: "activity" as const, title: "Taming Sari Tower", description: "Santai revolving tower ride — boleh see Melaka from 80m up, shiok!", location: "Jalan Merdeka, Melaka", baseDuration: 20, price: "RM23", priority: "Low" as const, category: "Entertainment" as const },
+    { id: uuid(), type: "activity" as const, title: "Kampung Kling Mosque", description: "Lepak at this beautiful old mosque — on-the-way if you're in Harmony Street.", location: "Harmony Street, Melaka", baseDuration: 20, price: "Free", priority: "Low" as const, category: "Culture" as const },
   ];
 
-  const cards = [
-    ...questionCards.slice(0, counts.questions),
-    ...activityCards.slice(0, counts.activities),
-  ];
+  const cards = activityCards.slice(0, counts.activities);
 
   return { destination, cards };
 }

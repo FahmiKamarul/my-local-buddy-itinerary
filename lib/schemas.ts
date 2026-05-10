@@ -56,12 +56,8 @@ export type ActivityCard = z.infer<typeof ActivityCardSchema>;
 export const CardDeckSchema = z
   .object({
     destination: z.string(),
-    cards: z.array(CardSchema).min(8).max(15),
+    cards: z.array(CardSchema).min(4).max(20),
   })
-  .refine(
-    (deck) => deck.cards.filter((c) => c.type === 'question').length >= 3,
-    { message: 'Deck must contain at least 3 Clarifying Question Cards' }
-  )
   .refine(
     (deck) => deck.cards.filter((c) => c.type === 'activity').length >= 4,
     { message: 'Deck must contain at least 4 Activity Cards' }
