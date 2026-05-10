@@ -1,7 +1,4 @@
 import { NextResponse } from "next/server";
-import { generateText, stepCountIs } from "ai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
 import { validateTimeWindow, parseHHMM } from "@/lib/time-utils";
 import {
   calculateBufferedDuration,
@@ -10,70 +7,142 @@ import {
   orderOptimized,
   orderMakanFocused,
   orderSantai,
+  type ActivityCardWithBuffer,
 } from "@/lib/itinerary-engine";
-import { ItineraryResultSchema, type ActivityCard } from "@/lib/schemas";
-import { calculateItineraryTool } from "@/lib/tools/calculate-itinerary";
+import { ItineraryResultSchema, type ActivityCard, type DaySchedule } from "@/lib/schemas";
 
 /**
- * Generates itinerary using the local engine (no AI needed for calculation).
- * The engine handles buffer math, priority dropping, and route ordering deterministically.
+ * Distributes activity cards across multiple days, respecting the daily time window.
+ * Returns an array of card groups — one per day.
  */
-function generateLocalItinerary(
+function distributeCardsAcrossDays(
+  cards: ActivityCardWithBuffer[],
+  availableMinutesPerDay: number,
+  tripDays: number
+): ActivityCardWithBuffer[][] {
+  const days: ActivityCardWithBuffer[][] = [];
+  let remaining = [...cards];
+
+  for (let day = 0; day < tripDays; day++) {
+    if (remaining.length === 0) break;
+
+    const dayCards: ActivityCardWithBuffer[] = [];
+    let dayMinutes = 0;
+
+    // Greedily fill each day
+    const toKeep: ActivityCardWithBuffer[] = [];
+    for (const card of remaining) {
+      if (dayMinutes + card.bufferedDuration <= availableMinutesPerDay) {
+        dayCards.push(card);
+        dayMinutes += card.bufferedDuration;
+      } else {
+        toKeep.push(card);
+      }
+    }
+
+    if (dayCards.length > 0) {
+      days.push(dayCards);
+    }
+    remaining = toKeep;
+  }
+
+  // If there are leftover cards, add them to the last day
+  if (remaining.length > 0 && days.length > 0) {
+    days[days.length - 1].push(...remaining);
+  } else if (remaining.length > 0) {
+    days.push(remaining);
+  }
+
+  return days;
+}
+
+/**
+ * Adds a date string to each day based on the start date.
+ */
+function addDatesToSchedule(startDate: string | undefined, dayIndex: number): string | undefined {
+  if (!startDate) return undefined;
+  const date = new Date(startDate);
+  date.setDate(date.getDate() + dayIndex);
+  return date.toISOString().split("T")[0];
+}
+
+/**
+ * Generates a multi-day itinerary using the local engine.
+ */
+function generateMultiDayItinerary(
   activityCards: ActivityCard[],
   arrivalTime: string,
   departureTime: string,
-  destination: string
+  destination: string,
+  tripDays: number,
+  startDate?: string,
 ) {
-  const availableMinutes = parseHHMM(departureTime) - parseHHMM(arrivalTime);
+  const availableMinutesPerDay = parseHHMM(departureTime) - parseHHMM(arrivalTime);
 
   // --- Optimized Route ---
   const optimizedBuffered = activityCards.map((c) => ({
     ...c,
     bufferedDuration: calculateBufferedDuration(c.baseDuration, 1.25),
   }));
-  const optimizedDrop = dropCardsToFitWindow(optimizedBuffered, availableMinutes);
-  const optimizedOrdered = orderOptimized(optimizedDrop.keptCards, destination);
-  const optimizedActivities = assignStartEndTimes(optimizedOrdered, arrivalTime, 0);
-  const optimizedTotal = optimizedActivities.reduce((s, a) => s + a.bufferedDuration, 0);
+  const optimizedOrdered = orderOptimized(optimizedBuffered, destination);
+  const optimizedDayGroups = distributeCardsAcrossDays(optimizedOrdered, availableMinutesPerDay, tripDays);
+  const optimizedDays: DaySchedule[] = optimizedDayGroups.map((dayCards, i) => ({
+    day: i + 1,
+    date: addDatesToSchedule(startDate, i),
+    activities: assignStartEndTimes(dayCards, arrivalTime, 0),
+    totalDuration: dayCards.reduce((s, c) => s + c.bufferedDuration, 0),
+  }));
 
   // --- Makan-Focused Route ---
   const makanBuffered = activityCards.map((c) => ({
     ...c,
     bufferedDuration: calculateBufferedDuration(c.baseDuration, 1.25),
   }));
-  const makanDrop = dropCardsToFitWindow(makanBuffered, availableMinutes);
-  const makanOrdered = orderMakanFocused(makanDrop.keptCards, arrivalTime, departureTime);
-  const makanActivities = assignStartEndTimes(makanOrdered, arrivalTime, 0);
-  const makanTotal = makanActivities.reduce((s, a) => s + a.bufferedDuration, 0);
+  const makanOrdered = orderMakanFocused(makanBuffered, arrivalTime, departureTime);
+  const makanDayGroups = distributeCardsAcrossDays(makanOrdered, availableMinutesPerDay, tripDays);
+  const makanDays: DaySchedule[] = makanDayGroups.map((dayCards, i) => ({
+    day: i + 1,
+    date: addDatesToSchedule(startDate, i),
+    activities: assignStartEndTimes(dayCards, arrivalTime, 0),
+    totalDuration: dayCards.reduce((s, c) => s + c.bufferedDuration, 0),
+  }));
 
   // --- Santai Route ---
-  const santaiResult = orderSantai(activityCards, availableMinutes);
-  const santaiActivities = assignStartEndTimes(santaiResult.orderedCards, arrivalTime, 15);
-  const santaiTotal = santaiActivities.reduce((s, a) => s + a.bufferedDuration, 0);
+  const santaiResult = orderSantai(activityCards, availableMinutesPerDay * tripDays);
+  // For Santai, account for rest intervals in daily capacity
+  const santaiMinutesPerDay = availableMinutesPerDay; // rest intervals are within the day
+  const santaiDayGroups = distributeCardsAcrossDays(santaiResult.orderedCards, santaiMinutesPerDay, tripDays);
+  const santaiDays: DaySchedule[] = santaiDayGroups.map((dayCards, i) => ({
+    day: i + 1,
+    date: addDatesToSchedule(startDate, i),
+    activities: assignStartEndTimes(dayCards, arrivalTime, 15),
+    totalDuration: dayCards.reduce((s, c) => s + c.bufferedDuration, 0),
+  }));
+
+  // Collect dropped cards (cards that didn't fit in any route)
+  const allKeptOptimized = new Set(optimizedDayGroups.flat().map((c) => c.title));
+  const droppedOptimized = activityCards.filter((c) => !allKeptOptimized.has(c.title)).map((c) => c.title);
 
   return {
     destination,
     arrivalTime,
     departureTime,
+    tripDays,
+    startDate,
     routes: [
       {
         route: "optimized" as const,
-        activities: optimizedActivities,
-        totalDuration: Math.min(optimizedTotal, 1440),
-        droppedCards: optimizedDrop.droppedCards.map((c) => c.title),
-        warningMessage: optimizedDrop.warning,
+        days: optimizedDays,
+        droppedCards: droppedOptimized,
       },
       {
         route: "makan-focused" as const,
-        activities: makanActivities,
-        totalDuration: Math.min(makanTotal, 1440),
-        droppedCards: makanDrop.droppedCards.map((c) => c.title),
-        warningMessage: makanDrop.warning,
+        days: makanDays,
+        droppedCards: [] as string[],
       },
       {
         route: "santai" as const,
-        activities: santaiActivities,
-        totalDuration: Math.min(santaiTotal, 1440),
+        days: santaiDays,
         droppedCards: santaiResult.droppedCards.map((c) => c.title),
         warningMessage: santaiResult.warning,
       },
@@ -81,110 +150,10 @@ function generateLocalItinerary(
   };
 }
 
-/**
- * Uses AI with tool calling to generate an itinerary.
- * The AI can iteratively call the calculate_itinerary tool to refine the schedule.
- */
-async function generateAIItinerary(
-  activityCards: ActivityCard[],
-  arrivalTime: string,
-  departureTime: string,
-  destination: string,
-  answers?: Record<string, string>
-) {
-  const answersContext = answers
-    ? Object.entries(answers)
-        .map(([q, a]) => `- ${q}: ${a}`)
-        .join("\n")
-    : "No preference questions answered.";
-
-  const prompt = `You are MY Buddy, a Malaysian trip planner. Generate an itinerary for a trip to ${destination}.
-
-Time window: ${arrivalTime} to ${departureTime}
-User preferences from swipe session:
-${answersContext}
-
-Available activity cards (user accepted these):
-${activityCards.map((c) => `- ${c.title} (${c.category}, ${c.priority} priority, ${c.baseDuration}min, ${c.price}, at ${c.location})`).join("\n")}
-
-Please call the calculate_itinerary tool THREE times — once for each route type:
-1. First call with routeType "optimized" and bufferMultiplier 1.25
-2. Second call with routeType "makan-focused" and bufferMultiplier 1.25
-3. Third call with routeType "santai" and bufferMultiplier 1.30
-
-Use ALL the accepted activity cards for each call. The tool will handle dropping cards that don't fit.`;
-
-  // Try Gemini first, fallback to DeepSeek on failure (e.g. 429)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let steps: any[] | null = null;
-
-  const hasGemini = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
-  const hasDeepSeek = process.env.DEEP_SEEK_API_KEY && process.env.DEEP_SEEK_API_KEY !== "your_deepseek_api_key_here";
-
-  if (hasGemini) {
-    try {
-      const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
-      const result = await generateText({
-        model: google("gemini-2.0-flash"),
-        tools: { calculate_itinerary: calculateItineraryTool },
-        stopWhen: stepCountIs(10),
-        prompt,
-      });
-      steps = result.steps;
-    } catch (geminiErr: unknown) {
-      const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      console.warn("Gemini itinerary failed:", errMsg);
-      if (!hasDeepSeek) throw geminiErr;
-    }
-  }
-
-  if (!steps && hasDeepSeek) {
-    console.log("Falling back to DeepSeek for itinerary...");
-    const deepseek = createOpenAI({
-      apiKey: process.env.DEEP_SEEK_API_KEY,
-      baseURL: "https://api.deepseek.com/v1",
-    });
-    const result = await generateText({
-      model: deepseek("deepseek-chat"),
-      tools: { calculate_itinerary: calculateItineraryTool },
-      stopWhen: stepCountIs(10),
-      prompt,
-    });
-    steps = result.steps;
-  }
-
-  if (!steps) return null;
-
-  // Extract tool results from steps
-  const toolResults: unknown[] = [];
-  for (const step of steps) {
-    if (step.toolResults) {
-      for (const result of step.toolResults) {
-        if ("output" in result) {
-          toolResults.push(result.output);
-        }
-      }
-    }
-  }
-
-  // We need exactly 3 route results
-  if (toolResults.length >= 3) {
-    return {
-      destination,
-      arrivalTime,
-      departureTime,
-      routes: toolResults.slice(0, 3),
-    };
-  }
-
-  // If AI didn't produce 3 routes, fall back to local engine
-  return null;
-}
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { acceptedCards, arrivalTime, departureTime, destination, answers } = body;
+    const { acceptedCards, arrivalTime, departureTime, destination, tripDays = 1, startDate } = body;
 
     // Validate time window
     const timeResult = validateTimeWindow(arrivalTime, departureTime);
@@ -204,42 +173,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const hasAnyAiKey = (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here") ||
-      (process.env.DEEP_SEEK_API_KEY && process.env.DEEP_SEEK_API_KEY !== "your_deepseek_api_key_here");
-
-    let itinerary;
-
-    if (hasAnyAiKey) {
-      // Try AI-powered itinerary generation
-      try {
-        const aiResult = await generateAIItinerary(
-          activityCards,
-          arrivalTime,
-          departureTime,
-          destination,
-          answers
-        );
-
-        if (aiResult) {
-          // Validate AI output
-          const parsed = ItineraryResultSchema.safeParse(aiResult);
-          if (parsed.success) {
-            return NextResponse.json({ itinerary: parsed.data });
-          }
-          console.warn("AI itinerary failed validation, falling back to local engine");
-        }
-      } catch (aiErr) {
-        console.warn("AI itinerary generation failed, falling back to local engine:", aiErr);
-      }
-    }
-
-    // Local engine fallback (always works, no API key needed)
-    itinerary = generateLocalItinerary(activityCards, arrivalTime, departureTime, destination);
+    // Generate multi-day itinerary
+    const itinerary = generateMultiDayItinerary(
+      activityCards,
+      arrivalTime,
+      departureTime,
+      destination,
+      tripDays,
+      startDate
+    );
 
     // Validate output
     const parsed = ItineraryResultSchema.safeParse(itinerary);
     if (!parsed.success) {
-      console.error("Itinerary schema validation failed:", parsed.error);
+      console.error("Itinerary schema validation failed:", parsed.error.issues);
       return NextResponse.json(
         { error: "Aiyoh, itinerary generation failed validation lah. Jom try again?" },
         { status: 500 }

@@ -84,16 +84,28 @@ export const ScheduledActivitySchema = z.object({
 export type ScheduledActivity = z.infer<typeof ScheduledActivitySchema>;
 
 // ---------------------------------------------------------------------------
+// DayScheduleSchema
+// A single day's schedule within a multi-day itinerary
+// ---------------------------------------------------------------------------
+export const DayScheduleSchema = z.object({
+  day: z.number().int().positive(),               // Day number (1, 2, 3...)
+  date: z.string().optional(),                     // YYYY-MM-DD if available
+  activities: z.array(ScheduledActivitySchema).min(1).max(20),
+  totalDuration: z.number().int().positive().max(1440),
+});
+
+export type DaySchedule = z.infer<typeof DayScheduleSchema>;
+
+// ---------------------------------------------------------------------------
 // RouteItinerarySchema
 // One of the three route variants (optimized, makan-focused, santai)
-// Validates: Requirements 9.2, 4.6
+// Now supports multi-day itineraries
 // ---------------------------------------------------------------------------
 export const RouteItinerarySchema = z.object({
   route: z.enum(['optimized', 'makan-focused', 'santai']),
-  activities: z.array(ScheduledActivitySchema).min(1).max(20),
-  totalDuration: z.number().int().positive().max(1440), // minutes, max 24h
-  droppedCards: z.array(z.string()).default([]),         // titles of dropped cards
-  warningMessage: z.string().optional(),                 // shown when cards were dropped
+  days: z.array(DayScheduleSchema).min(1),
+  droppedCards: z.array(z.string()).default([]),
+  warningMessage: z.string().optional(),
 });
 
 export type RouteItinerary = z.infer<typeof RouteItinerarySchema>;
@@ -101,12 +113,14 @@ export type RouteItinerary = z.infer<typeof RouteItinerarySchema>;
 // ---------------------------------------------------------------------------
 // ItineraryResultSchema
 // The full itinerary result containing all three route variants
-// Validates: Requirements 9.2, 4.6
 // ---------------------------------------------------------------------------
 export const ItineraryResultSchema = z.object({
   destination: z.string(),
   arrivalTime: z.string().regex(/^\d{2}:\d{2}$/),
   departureTime: z.string().regex(/^\d{2}:\d{2}$/),
+  tripDays: z.number().int().positive(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   routes: z.tuple([
     RouteItinerarySchema,
     RouteItinerarySchema,
