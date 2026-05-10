@@ -142,7 +142,7 @@ Use ALL the accepted activity cards for each call. The tool will handle dropping
     console.log("Falling back to DeepSeek for itinerary...");
     const deepseek = createOpenAI({
       apiKey: process.env.DEEP_SEEK_API_KEY,
-      baseURL: "https://api.deepseek.com",
+      baseURL: "https://api.deepseek.com/v1",
     });
     const result = await generateText({
       model: deepseek("deepseek-chat"),

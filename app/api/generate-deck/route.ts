@@ -43,17 +43,16 @@ function getCardCount(tripDays: number): { total: number; questions: number; act
 
 /**
  * Schema for AI-generated card deck (used with generateObject).
- * Only generates activity cards — questions are handled client-side.
+ * Relaxed to accept what AI models actually produce — we normalize after.
  */
 const AICardSchema = z.object({
-  type: z.literal("activity"),
-  title: z.string().min(1).max(100),
-  description: z.string().min(1).max(300),
+  title: z.string(),
+  description: z.string(),
   location: z.string().optional(),
-  baseDuration: z.number().int().positive().max(720).optional(),
+  baseDuration: z.number().optional(),
   price: z.string().optional(),
-  priority: z.enum(["High", "Medium", "Low"]).optional(),
-  category: z.enum(["Food", "Culture", "Nature", "Shopping", "Entertainment", "Other"]).optional(),
+  priority: z.string().optional(),
+  category: z.string().optional(),
 });
 
 const AIDeckSchema = z.object({
@@ -195,7 +194,7 @@ export async function POST(request: Request) {
         console.log("Falling back to DeepSeek...");
         const deepseek = createOpenAI({
           apiKey: process.env.DEEP_SEEK_API_KEY,
-          baseURL: "https://api.deepseek.com",
+          baseURL: "https://api.deepseek.com/v1",
         });
         const result = await generateObject({
           model: deepseek("deepseek-chat"),
@@ -207,11 +206,20 @@ export async function POST(request: Request) {
       }
 
       if (object) {
-        // Add UUIDs and normalize price format for each card
+        // Normalize AI output into proper card format
+        const VALID_PRIORITIES = ["High", "Medium", "Low"];
+        const VALID_CATEGORIES = ["Food", "Culture", "Nature", "Shopping", "Entertainment", "Other"];
+
         const cardsWithIds = object.cards.map((card) => ({
-          ...card,
           id: crypto.randomUUID(),
-          price: card.price ? normalizePrice(card.price) : undefined,
+          type: "activity" as const,
+          title: (card.title ?? "").slice(0, 100) || "Untitled Activity",
+          description: (card.description ?? "").slice(0, 300) || "A shiok activity to check out lah!",
+          location: card.location || destination,
+          baseDuration: Math.max(1, Math.min(720, Math.round(card.baseDuration ?? 60))),
+          price: card.price ? normalizePrice(card.price) : "Free",
+          priority: VALID_PRIORITIES.includes(card.priority ?? "") ? card.priority as "High" | "Medium" | "Low" : "Medium",
+          category: VALID_CATEGORIES.includes(card.category ?? "") ? card.category as "Food" | "Culture" | "Nature" | "Shopping" | "Entertainment" | "Other" : "Other",
         }));
         deck = { destination, cards: cardsWithIds };
       } else {
