@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { isRecognisedLocation } from "@/lib/locations";
 import { CardDeckSchema } from "@/lib/schemas";
@@ -158,32 +159,64 @@ export async function POST(request: Request) {
     }
 
     const counts = getCardCount(tripDays);
-    const hasApiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
+    const hasGemini = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
+    const hasDeepSeek = process.env.DEEP_SEEK_API_KEY && process.env.DEEP_SEEK_API_KEY !== "your_deepseek_api_key_here";
 
     let deck: { destination: string; cards: unknown[] };
 
-    if (hasApiKey) {
+    if (hasGemini || hasDeepSeek) {
       // --- AI-powered card generation ---
       const prompt = buildDeckPrompt(destination, tripDays, counts, preferences);
 
-      const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+      let object: { cards: z.infer<typeof AICardSchema>[] } | null = null;
 
-      const { object } = await generateObject({
-        model: google("gemini-2.5-flash"),
-        schema: AIDeckSchema,
-        prompt,
-        maxRetries: 3,
-      });
+      // Try Gemini first
+      if (hasGemini) {
+        try {
+          const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+          const result = await generateObject({
+            model: google("gemini-2.5-flash"),
+            schema: AIDeckSchema,
+            prompt,
+            maxRetries: 2,
+          });
+          object = result.object;
+        } catch (geminiErr: unknown) {
+          const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+          console.warn("Gemini failed:", errMsg);
 
-      // Add UUIDs and normalize price format for each card
-      const cardsWithIds = object.cards.map((card) => ({
-        ...card,
-        id: crypto.randomUUID(),
-        // Normalize price: ensure it matches "Free" or "RMX" or "RMX-RMY" pattern
-        price: card.price ? normalizePrice(card.price) : undefined,
-      }));
+          // If 429 or other error, fall through to DeepSeek
+          if (!hasDeepSeek) throw geminiErr;
+        }
+      }
 
-      deck = { destination, cards: cardsWithIds };
+      // Fallback to DeepSeek if Gemini failed or unavailable
+      if (!object && hasDeepSeek) {
+        console.log("Falling back to DeepSeek...");
+        const deepseek = createOpenAI({
+          apiKey: process.env.DEEP_SEEK_API_KEY,
+          baseURL: "https://api.deepseek.com",
+        });
+        const result = await generateObject({
+          model: deepseek("deepseek-chat"),
+          schema: AIDeckSchema,
+          prompt,
+          maxRetries: 2,
+        });
+        object = result.object;
+      }
+
+      if (object) {
+        // Add UUIDs and normalize price format for each card
+        const cardsWithIds = object.cards.map((card) => ({
+          ...card,
+          id: crypto.randomUUID(),
+          price: card.price ? normalizePrice(card.price) : undefined,
+        }));
+        deck = { destination, cards: cardsWithIds };
+      } else {
+        deck = generateMockDeck(destination, tripDays);
+      }
     } else {
       // --- Fallback to mock data ---
       deck = generateMockDeck(destination, tripDays);
@@ -195,7 +228,7 @@ export async function POST(request: Request) {
       console.error("Deck validation failed:", parsed.error.issues);
 
       // If AI output failed validation, fall back to mock
-      if (hasApiKey) {
+      if (hasGemini || hasDeepSeek) {
         console.warn("AI deck failed validation, falling back to mock deck");
         const mockDeck = generateMockDeck(destination, tripDays);
         const mockParsed = CardDeckSchema.safeParse(mockDeck);

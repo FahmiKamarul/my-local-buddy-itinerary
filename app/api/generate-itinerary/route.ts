@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateText, stepCountIs } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
 import { validateTimeWindow, parseHHMM } from "@/lib/time-utils";
 import {
   calculateBufferedDuration,
@@ -113,14 +114,46 @@ Please call the calculate_itinerary tool THREE times — once for each route typ
 
 Use ALL the accepted activity cards for each call. The tool will handle dropping cards that don't fit.`;
 
-  const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+  // Try Gemini first, fallback to DeepSeek on failure (e.g. 429)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let steps: any[] | null = null;
 
-  const { steps } = await generateText({
-    model: google("gemini-2.0-flash"),
-    tools: { calculate_itinerary: calculateItineraryTool },
-    stopWhen: stepCountIs(10),
-    prompt,
-  });
+  const hasGemini = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
+  const hasDeepSeek = process.env.DEEP_SEEK_API_KEY && process.env.DEEP_SEEK_API_KEY !== "your_deepseek_api_key_here";
+
+  if (hasGemini) {
+    try {
+      const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+      const result = await generateText({
+        model: google("gemini-2.0-flash"),
+        tools: { calculate_itinerary: calculateItineraryTool },
+        stopWhen: stepCountIs(10),
+        prompt,
+      });
+      steps = result.steps;
+    } catch (geminiErr: unknown) {
+      const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      console.warn("Gemini itinerary failed:", errMsg);
+      if (!hasDeepSeek) throw geminiErr;
+    }
+  }
+
+  if (!steps && hasDeepSeek) {
+    console.log("Falling back to DeepSeek for itinerary...");
+    const deepseek = createOpenAI({
+      apiKey: process.env.DEEP_SEEK_API_KEY,
+      baseURL: "https://api.deepseek.com",
+    });
+    const result = await generateText({
+      model: deepseek("deepseek-chat"),
+      tools: { calculate_itinerary: calculateItineraryTool },
+      stopWhen: stepCountIs(10),
+      prompt,
+    });
+    steps = result.steps;
+  }
+
+  if (!steps) return null;
 
   // Extract tool results from steps
   const toolResults: unknown[] = [];
@@ -171,11 +204,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const hasApiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
+    const hasAnyAiKey = (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here") ||
+      (process.env.DEEP_SEEK_API_KEY && process.env.DEEP_SEEK_API_KEY !== "your_deepseek_api_key_here");
 
     let itinerary;
 
-    if (hasApiKey) {
+    if (hasAnyAiKey) {
       // Try AI-powered itinerary generation
       try {
         const aiResult = await generateAIItinerary(
