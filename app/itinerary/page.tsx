@@ -57,6 +57,8 @@ export default function ItineraryPage() {
     const destination = sessionStorage.getItem("mybuddy_destination") ?? "Malaysia";
     const arrivalTime = sessionStorage.getItem("mybuddy_arrival_time") ?? "09:00";
     const departureTime = sessionStorage.getItem("mybuddy_departure_time") ?? "18:00";
+    const answersRaw = sessionStorage.getItem("mybuddy_answers");
+    const answers = answersRaw ? JSON.parse(answersRaw) : undefined;
 
     try {
       const res = await fetch("/api/generate-itinerary", {
@@ -67,6 +69,7 @@ export default function ItineraryPage() {
           arrivalTime,
           departureTime,
           destination,
+          answers,
         }),
       });
 
