@@ -20,6 +20,19 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in the values:
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | Required | Description |
+|---|---|---|
+| `OPENAI_API_KEY` | Yes | API key for the AI model provider (used for itinerary generation) |
+| `GOOGLE_PLACES_API_KEY` | Yes | Google Places API (New) key for place search. Enable the [Places API (New)](https://console.cloud.google.com/apis/library/places-backend.googleapis.com) in your Google Cloud Console. |
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
