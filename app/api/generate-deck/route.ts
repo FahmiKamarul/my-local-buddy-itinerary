@@ -35,12 +35,42 @@ const AIDeckSchema = z.object({
 });
 
 /**
- * Builds the system prompt for card generation.
+ * Builds the system prompt for card generation, incorporating user preferences.
  */
-function buildDeckPrompt(destination: string, tripDays: number, counts: { questions: number; activities: number }): string {
+function buildDeckPrompt(
+  destination: string,
+  tripDays: number,
+  counts: { questions: number; activities: number },
+  preferences?: { question: string; answer: string }[]
+): string {
+  const preferencesContext = preferences && preferences.length > 0
+    ? `\n\nUser Preferences (use these to personalise the cards):
+${preferences.map((p) => `- ${p.question}: ${p.answer}`).join("\n")}
+
+IMPORTANT: Tailor your activity suggestions based on these answers:
+${preferences.some((p) => p.question.includes("family") && p.answer === "Yes")
+  ? "- This is a FAMILY trip — include kid-friendly activities, avoid nightlife, suggest family restaurants"
+  : "- This is NOT a family trip — can include nightlife, adventurous activities, adult-oriented spots"}
+${preferences.some((p) => p.question.includes("food") && p.answer === "Yes")
+  ? "- User LOVES food — include more Food category cards (at least 3-4), hawker stalls, famous restaurants"
+  : "- User is not food-focused — include 1-2 food spots max, focus on other categories"}
+${preferences.some((p) => p.question.includes("adventure") && p.answer === "Yes")
+  ? "- User likes ADVENTURE — include Nature/outdoor activities, hiking, water sports if available"
+  : ""}
+${preferences.some((p) => p.question.includes("history") && p.answer === "Yes")
+  ? "- User enjoys HISTORY — include museums, heritage sites, historical landmarks"
+  : ""}
+${preferences.some((p) => p.question.includes("budget") && p.answer === "Yes")
+  ? "- User is on a BUDGET — prioritise free/cheap activities, street food over restaurants, free attractions"
+  : "- Budget is flexible — can include premium experiences and restaurants"}
+${preferences.some((p) => p.question.includes("nightlife") && p.answer === "Yes")
+  ? "- User wants NIGHTLIFE — include bars, night markets, evening entertainment"
+  : ""}`
+    : "";
+
   return `You are MY Buddy, a hyperlocal Malaysian trip planner. You speak in Malaysian-English (Manglish) — use slang like "Lepak", "Ngam", "On-the-way", "Makan", "Santai", "Shiok", "Boleh", "lah", "lor", "leh" naturally in descriptions.
 
-Generate a card deck for a ${tripDays}-day trip to ${destination}, Malaysia.
+Generate a card deck for a ${tripDays}-day trip to ${destination}, Malaysia.${preferencesContext}
 
 Requirements:
 - Generate exactly ${counts.questions} Clarifying Question Cards (type: "question")
@@ -49,9 +79,10 @@ Requirements:
 - Include culturally specific references (peak lunch traffic 12-2pm, hawker hours 7am-10pm, weekend crowds)
 
 For QUESTION cards:
-- Ask about travel preferences (food types, pace, budget, interests)
-- Keep titles as questions (e.g. "Do you like street food?")
+- Ask about MORE SPECIFIC travel preferences based on what we already know
+- Keep titles as questions (e.g. "Want to try durian?", "Prefer indoor or outdoor?")
 - Description should explain why this matters for the trip in Manglish tone
+- Do NOT repeat questions the user already answered in preferences
 
 For ACTIVITY cards, include ALL these fields:
 - title: Name of the attraction/activity
@@ -106,7 +137,7 @@ function generateMockDeck(destination: string, tripDays: number) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { destination, tripDays = 1 } = body;
+    const { destination, tripDays = 1, preferences } = body;
 
     if (!destination || !isRecognisedLocation(destination)) {
       return NextResponse.json(
@@ -122,7 +153,7 @@ export async function POST(request: Request) {
 
     if (hasApiKey) {
       // --- AI-powered card generation ---
-      const prompt = buildDeckPrompt(destination, tripDays, counts);
+      const prompt = buildDeckPrompt(destination, tripDays, counts, preferences);
 
       const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
 

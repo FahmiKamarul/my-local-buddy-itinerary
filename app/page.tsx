@@ -8,7 +8,17 @@ import LoadingIndicator from "@/components/LoadingIndicator";
 import ErrorMessage from "@/components/ErrorMessage";
 import { validateTimeWindow } from "@/lib/time-utils";
 
-type Step = "destination" | "dates" | "loading";
+type Step = "destination" | "dates" | "preferences" | "loading";
+
+// Preference questions asked before generating cards
+const PREFERENCE_QUESTIONS = [
+  { id: "family", question: "Is this a family trip?", emoji: "👨‍👩‍👧‍👦" },
+  { id: "food", question: "Do you love trying local food?", emoji: "🍜" },
+  { id: "adventure", question: "Are you into outdoor adventures?", emoji: "🏔️" },
+  { id: "history", question: "Do you enjoy history & culture?", emoji: "🏛️" },
+  { id: "budget", question: "Are you on a tight budget?", emoji: "💰" },
+  { id: "nightlife", question: "Interested in nightlife & entertainment?", emoji: "🌙" },
+];
 
 export default function HomePage() {
   const router = useRouter();
@@ -22,6 +32,7 @@ export default function HomePage() {
   const [endDate, setEndDate] = useState<string | null>(null);
   const [arrivalTime, setArrivalTime] = useState("09:00");
   const [departureTime, setDepartureTime] = useState("18:00");
+  const [preferences, setPreferences] = useState<Record<string, boolean>>({});
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +59,8 @@ export default function HomePage() {
     setError(null);
   }
 
-  // Step 2: Final submit — generate deck
-  async function handleGenerateDeck(e: React.FormEvent) {
+  // Step 2 → Step 3: Move to preferences
+  function handleDatesNext(e: React.FormEvent) {
     e.preventDefault();
 
     if (!startDate) {
@@ -68,9 +79,26 @@ export default function HomePage() {
     }
 
     setError(null);
+    setStep("preferences");
+  }
+
+  // Toggle a preference answer
+  function togglePreference(id: string) {
+    setPreferences((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  // Step 3: Final submit — generate deck with preferences
+  async function handleGenerateDeck() {
+    setError(null);
     setStep("loading");
 
     const tripDays = getTripDays();
+
+    // Build preference context for the AI
+    const preferenceAnswers = PREFERENCE_QUESTIONS.map((q) => ({
+      question: q.question,
+      answer: preferences[q.id] ? "Yes" : "No",
+    }));
 
     try {
       const res = await fetch("/api/generate-deck", {
@@ -83,6 +111,7 @@ export default function HomePage() {
           endDate,
           arrivalTime,
           departureTime,
+          preferences: preferenceAnswers,
         }),
       });
 
@@ -90,23 +119,24 @@ export default function HomePage() {
 
       if (!res.ok || data.error) {
         setError(data.error ?? "Aiyoh, something went wrong lah. Jom try again?");
-        setStep("dates");
+        setStep("preferences");
         return;
       }
 
       // Store everything in sessionStorage for the swipe page
       sessionStorage.setItem("mybuddy_deck", JSON.stringify(data.deck));
       sessionStorage.setItem("mybuddy_destination", destination);
-      sessionStorage.setItem("mybuddy_trip_start", startDate);
-      sessionStorage.setItem("mybuddy_trip_end", endDate);
+      sessionStorage.setItem("mybuddy_trip_start", startDate!);
+      sessionStorage.setItem("mybuddy_trip_end", endDate!);
       sessionStorage.setItem("mybuddy_trip_days", String(tripDays));
       sessionStorage.setItem("mybuddy_arrival_time", arrivalTime);
       sessionStorage.setItem("mybuddy_departure_time", departureTime);
+      sessionStorage.setItem("mybuddy_preferences", JSON.stringify(preferenceAnswers));
 
       router.push("/swipe");
     } catch {
       setError("Aiyoh, network error lah. Check your connection and try again boleh?");
-      setStep("dates");
+      setStep("preferences");
     }
   }
 
@@ -130,8 +160,8 @@ export default function HomePage() {
 
         {/* Step 2: Dates & Times */}
         {step === "dates" && (
-          <form onSubmit={handleGenerateDeck} className="space-y-5">
-            {/* Destination badge — tap to go back */}
+          <form onSubmit={handleDatesNext} className="space-y-5">
+            {/* Destination badge */}
             <button
               type="button"
               onClick={() => setStep("destination")}
@@ -200,24 +230,87 @@ export default function HomePage() {
             {/* Error */}
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-            {/* Submit */}
+            {/* Next */}
             <button
               type="submit"
               disabled={!startDate || !endDate}
               className="w-full min-h-[44px] rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Jom, Show Me Cards! 🃏
+              Next — Tell Us Your Vibe 🎯
             </button>
           </form>
         )}
 
+        {/* Step 3: Preferences */}
+        {step === "preferences" && (
+          <div className="space-y-5">
+            {/* Context badges */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setStep("destination")}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs font-medium"
+              >
+                📍 {destination}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep("dates")}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-200 text-xs font-medium"
+              >
+                📅 {getTripDays()} day{getTripDays() > 1 ? "s" : ""}
+              </button>
+            </div>
+
+            {/* Questions */}
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                Quick questions — help us personalise your trip!
+              </h2>
+              <div className="space-y-2">
+                {PREFERENCE_QUESTIONS.map((q) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => togglePreference(q.id)}
+                    className={`w-full min-h-[52px] flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all active:scale-[0.98] ${
+                      preferences[q.id]
+                        ? "border-amber-400 bg-amber-50 dark:bg-amber-900/30 dark:border-amber-500"
+                        : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                    }`}
+                  >
+                    <span className="text-xl shrink-0">{q.emoji}</span>
+                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 flex-1">
+                      {q.question}
+                    </span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      preferences[q.id]
+                        ? "bg-amber-400 text-white"
+                        : "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
+                    }`}>
+                      {preferences[q.id] ? "YES" : "NO"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+            {/* Generate */}
+            <button
+              type="button"
+              onClick={handleGenerateDeck}
+              className="w-full min-h-[44px] rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white active:scale-95 transition-transform"
+            >
+              Generate My Cards! 🃏
+            </button>
+          </div>
+        )}
+
         {/* Loading */}
         {step === "loading" && <LoadingIndicator />}
-
-        {/* Error on loading step */}
-        {step !== "loading" && error && step === "destination" && (
-          <ErrorMessage message={error} onRetry={() => setError(null)} />
-        )}
       </div>
     </div>
   );
