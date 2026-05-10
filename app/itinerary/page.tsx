@@ -43,7 +43,6 @@ export default function ItineraryPage() {
     try {
       const cards = JSON.parse(stored);
       setAcceptedCards(cards);
-      // Auto-generate itinerary on mount
       generateItinerary(cards);
     } catch {
       setError("Aiyoh, card data corrupted lah. Go back and try again.");
@@ -118,8 +117,8 @@ export default function ItineraryPage() {
       <div className="w-full max-w-sm mx-auto space-y-5">
         {/* Header */}
         <div className="text-center space-y-1">
-          <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Your Itinerary 🗓️</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <h1 className="text-xl font-bold text-primary">Your Itinerary 🗓️</h1>
+          <p className="text-xs text-muted">
             {itinerary.destination} • {formatTripDates()} • {itinerary.arrivalTime} – {itinerary.departureTime}
           </p>
         </div>
@@ -133,7 +132,7 @@ export default function ItineraryPage() {
         {/* Start over */}
         <button
           onClick={() => router.push("/")}
-          className="w-full min-h-[44px] rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-600 dark:text-zinc-300 active:scale-95 transition-transform"
+          className="w-full min-h-[44px] rounded-xl border border-primary-light/30 px-4 py-3 text-sm font-medium text-primary hover:bg-surface-alt active:scale-95 transition-all"
         >
           Plan another trip lah! 🔄
         </button>

@@ -38,19 +38,15 @@ export default function CalendarPicker({ startDate, endDate, onSelect }: Calenda
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [viewYear, setViewYear] = useState(today.getFullYear());
 
-  // Generate calendar grid for the current view month
   const calendarDays = useMemo(() => {
     const firstDay = new Date(viewYear, viewMonth, 1);
-    // Monday = 0, Sunday = 6 (ISO week)
     let startDow = firstDay.getDay() - 1;
     if (startDow < 0) startDow = 6;
 
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const grid: (number | null)[] = [];
 
-    // Leading empty cells
     for (let i = 0; i < startDow; i++) grid.push(null);
-    // Day numbers
     for (let d = 1; d <= daysInMonth; d++) grid.push(d);
 
     return grid;
@@ -76,20 +72,14 @@ export default function CalendarPicker({ startDate, endDate, onSelect }: Calenda
 
   function handleDayClick(day: number) {
     const dateStr = toDateStr(viewYear, viewMonth, day);
-
-    // Don't allow past dates
     if (dateStr < todayStr) return;
 
     if (!startDate || (startDate && endDate)) {
-      // First click or reset: set start date
       onSelect(dateStr, null);
     } else {
-      // Second click: set end date
       if (dateStr < startDate) {
-        // Clicked before start — swap
         onSelect(dateStr, startDate);
       } else if (dateStr === startDate) {
-        // Same day trip
         onSelect(dateStr, dateStr);
       } else {
         onSelect(startDate, dateStr);
@@ -108,43 +98,42 @@ export default function CalendarPicker({ startDate, endDate, onSelect }: Calenda
     let base = "min-h-[40px] min-w-[40px] flex items-center justify-center text-sm rounded-full transition-all ";
 
     if (isPast) {
-      base += "text-zinc-300 dark:text-zinc-600 cursor-not-allowed";
+      base += "text-muted/40 cursor-not-allowed";
     } else if (isStart || isEnd) {
-      base += "bg-amber-500 text-white font-bold shadow-md";
+      base += "bg-accent text-white font-bold shadow-md";
     } else if (isInRange) {
-      base += "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-medium";
+      base += "bg-accent/15 text-accent font-medium";
     } else if (isToday) {
-      base += "border-2 border-amber-400 text-zinc-900 dark:text-zinc-100 font-medium cursor-pointer hover:bg-amber-50 dark:hover:bg-zinc-700";
+      base += "border-2 border-accent text-foreground font-medium cursor-pointer hover:bg-accent/10";
     } else {
-      base += "text-zinc-800 dark:text-zinc-200 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700";
+      base += "text-foreground cursor-pointer hover:bg-surface-alt";
     }
 
     return base;
   }
 
-  // Can't go before current month
   const canGoPrev = viewYear > today.getFullYear() || (viewYear === today.getFullYear() && viewMonth > today.getMonth());
 
   return (
-    <div className="w-full rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4 space-y-3 shadow-sm">
+    <div className="w-full rounded-2xl bg-surface border border-primary-light/20 p-4 space-y-3 shadow-sm">
       {/* Month navigation */}
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={handlePrevMonth}
           disabled={!canGoPrev}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-primary hover:bg-surface-alt disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Previous month"
         >
           ‹
         </button>
-        <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+        <h3 className="text-sm font-bold text-foreground">
           {MONTHS[viewMonth]} {viewYear}
         </h3>
         <button
           type="button"
           onClick={handleNextMonth}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-primary hover:bg-surface-alt transition-colors"
           aria-label="Next month"
         >
           ›
@@ -154,7 +143,7 @@ export default function CalendarPicker({ startDate, endDate, onSelect }: Calenda
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-0">
         {DAYS.map((d) => (
-          <div key={d} className="text-center text-xs font-medium text-zinc-400 dark:text-zinc-500 py-1">
+          <div key={d} className="text-center text-xs font-medium text-muted py-1">
             {d}
           </div>
         ))}
@@ -181,17 +170,17 @@ export default function CalendarPicker({ startDate, endDate, onSelect }: Calenda
       </div>
 
       {/* Selection summary */}
-      <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-700">
+      <div className="flex items-center justify-between pt-2 border-t border-primary-light/20">
         <div className="space-y-0.5">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">Start</p>
-          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          <p className="text-xs text-muted uppercase tracking-wide">Start</p>
+          <p className="text-sm font-semibold text-foreground">
             {startDate ? formatDisplayDate(startDate) : "—"}
           </p>
         </div>
-        <div className="text-zinc-300 dark:text-zinc-600">→</div>
+        <div className="text-primary-light">→</div>
         <div className="space-y-0.5 text-right">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">End</p>
-          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          <p className="text-xs text-muted uppercase tracking-wide">End</p>
+          <p className="text-sm font-semibold text-foreground">
             {endDate ? formatDisplayDate(endDate) : "—"}
           </p>
         </div>

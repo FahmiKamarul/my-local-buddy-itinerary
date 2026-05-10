@@ -9,11 +9,6 @@ interface TimeWindowInputProps {
   loading?: boolean;
 }
 
-function getTodayDate(): string {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
-}
-
 export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputProps) {
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
@@ -53,24 +48,15 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-4">
       <p className="text-sm text-muted">
-        Set your trip date and time window so we can plan your day properly lah!
+        Pick your trip dates and time window so we can plan your day properly lah!
       </p>
 
-      {/* Date picker */}
-      <div className="space-y-1">
-        <label htmlFor="trip-date" className="block text-xs font-medium text-primary uppercase tracking-wide">
-          Trip Date
-        </label>
-        <input
-          id="trip-date"
-          type="date"
-          value={date}
-          onChange={(e) => { setDate(e.target.value); setError(null); }}
-          min={getTodayDate()}
-          disabled={loading}
-          className="w-full min-h-[44px] rounded-xl border border-primary-light/40 bg-surface px-3 py-2 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent disabled:opacity-50 transition-all"
-        />
-      </div>
+      {/* Calendar date picker */}
+      <CalendarPicker
+        startDate={startDate}
+        endDate={endDate}
+        onSelect={handleDateSelect}
+      />
 
       {/* Time pickers */}
       <div className="grid grid-cols-2 gap-3">
