@@ -15,7 +15,7 @@ export const CardSchema = z.object({
   baseDuration: z.number().int().positive().max(720).optional(), // minutes
   price: z
     .string()
-    .regex(/^(Free|RM\s?\d+(\s?[–\-]\s?RM?\s?\d+)?)$/)
+    .regex(/^(Free|RM\s?\d+(\.\d+)?(\s?[-–]\s?RM?\s?\d+(\.\d+)?)?)$/)
     .optional(),
   priority: z.enum(['High', 'Medium', 'Low']).optional(),
   category: z
@@ -34,7 +34,7 @@ export const ActivityCardSchema = CardSchema.extend({
   type: z.literal('activity'),
   location: z.string().min(1).max(100),
   baseDuration: z.number().int().positive().max(720),
-  price: z.string().regex(/^(Free|RM\s?\d+(\s?[–\-]\s?RM?\s?\d+)?)$/),
+  price: z.string().regex(/^(Free|RM\s?\d+(\.\d+)?(\s?[-–]\s?RM?\s?\d+(\.\d+)?)?)$/),
   priority: z.enum(['High', 'Medium', 'Low']),
   category: z.enum([
     'Food',

@@ -6,6 +6,32 @@ import { isRecognisedLocation } from "@/lib/locations";
 import { CardDeckSchema } from "@/lib/schemas";
 
 /**
+ * Normalizes AI-generated price strings to match our schema regex.
+ * Handles formats like "RM 10 - RM 30", "RM10 to RM30", "RM10–RM30", etc.
+ */
+function normalizePrice(price: string): string {
+  const trimmed = price.trim();
+
+  // Already "Free"
+  if (/^free$/i.test(trimmed)) return "Free";
+
+  // Try to extract numbers from RM patterns
+  const rangeMatch = trimmed.match(/RM\s?(\d+(?:\.\d+)?)\s*[-–~to]+\s*(?:RM\s?)?(\d+(?:\.\d+)?)/i);
+  if (rangeMatch) {
+    return `RM${rangeMatch[1]}-RM${rangeMatch[2]}`;
+  }
+
+  // Single price: "RM 10", "RM10", "RM 10.50"
+  const singleMatch = trimmed.match(/RM\s?(\d+(?:\.\d+)?)/i);
+  if (singleMatch) {
+    return `RM${singleMatch[1]}`;
+  }
+
+  // Fallback: return as-is and let validation catch it
+  return trimmed;
+}
+
+/**
  * Determines how many cards to generate based on trip duration.
  */
 function getCardCount(tripDays: number): { total: number; questions: number; activities: number } {
@@ -158,16 +184,18 @@ export async function POST(request: Request) {
       const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
 
       const { object } = await generateObject({
-        model: google("gemini-2.0-flash"),
+        model: google("gemini-2.5-flash"),
         schema: AIDeckSchema,
         prompt,
         maxRetries: 3,
       });
 
-      // Add UUIDs to each card (AI doesn't generate them)
+      // Add UUIDs and normalize price format for each card
       const cardsWithIds = object.cards.map((card) => ({
         ...card,
         id: crypto.randomUUID(),
+        // Normalize price: ensure it matches "Free" or "RMX" or "RMX-RMY" pattern
+        price: card.price ? normalizePrice(card.price) : undefined,
       }));
 
       deck = { destination, cards: cardsWithIds };
