@@ -37,7 +37,6 @@ export default function SwipeCardStack({ deck, onComplete }: SwipeCardStackProps
       setCurrentIndex(nextIndex);
 
       if (nextIndex >= total) {
-        // End of deck — trigger completion after 500ms
         setTimeout(() => onComplete(newAccepted, newAnswers), 500);
       }
     }, 300);
@@ -46,9 +45,11 @@ export default function SwipeCardStack({ deck, onComplete }: SwipeCardStackProps
   if (isDone) {
     return (
       <div className="flex flex-col items-center gap-4 py-12 text-center">
-        <div className="text-4xl">🎉</div>
-        <p className="text-lg font-semibold text-zinc-800">Habis dah! All done lah.</p>
-        <p className="text-sm text-zinc-500">Generating your itinerary now...</p>
+        <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
+          <span className="text-3xl">🎉</span>
+        </div>
+        <p className="text-lg font-semibold text-primary">Habis dah! All done lah.</p>
+        <p className="text-sm text-muted">Generating your itinerary now...</p>
       </div>
     );
   }
@@ -60,18 +61,17 @@ export default function SwipeCardStack({ deck, onComplete }: SwipeCardStackProps
     <div className="flex flex-col gap-6">
       {/* Progress */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+        <div className="flex-1 h-1.5 bg-surface-alt rounded-full overflow-hidden">
           <div
-            className="h-full bg-amber-400 rounded-full transition-all duration-300"
+            className="h-full bg-accent rounded-full transition-all duration-300"
             style={{ width: `${(currentIndex / total) * 100}%` }}
           />
         </div>
-        <span className="text-xs text-zinc-500 shrink-0">{currentIndex + 1} / {total}</span>
+        <span className="text-xs text-muted shrink-0">{currentIndex + 1} / {total}</span>
       </div>
 
       {/* Card stack */}
       <div className="relative" style={{ height: 460 }}>
-        {/* Background card (next) */}
         {nextCard && (
           <SwipeCard
             key={`card-${currentIndex + 1}`}
@@ -82,7 +82,6 @@ export default function SwipeCardStack({ deck, onComplete }: SwipeCardStackProps
           />
         )}
 
-        {/* Top card */}
         <AnimatePresence>
           {!exiting && (
             <motion.div

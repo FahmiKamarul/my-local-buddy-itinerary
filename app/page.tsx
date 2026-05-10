@@ -30,7 +30,6 @@ export default function HomePage() {
         return;
       }
 
-      // Store deck in sessionStorage and navigate to swipe page
       sessionStorage.setItem("mybuddy_deck", JSON.stringify(data.deck));
       sessionStorage.setItem("mybuddy_destination", destination);
       router.push("/swipe");
@@ -43,14 +42,30 @@ export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-5 py-10">
       <div className="w-full max-w-sm space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-            🇲🇾 MY Buddy
+        {/* Hero section */}
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-light/20 mb-2">
+            <span className="text-3xl">✈️</span>
+          </div>
+          <h1 className="text-3xl font-bold text-primary">
+            MY Buddy
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Your local Malaysian trip planner lah!
+          <p className="text-sm text-muted leading-relaxed">
+            Your local Malaysian trip planner.<br />
+            Discover hidden gems, plan like a local lah!
           </p>
+        </div>
+
+        {/* Decorative travel tags */}
+        <div className="flex flex-wrap justify-center gap-2">
+          {["🏖️ Beaches", "🍜 Street Food", "🏛️ Heritage", "🌿 Nature"].map((tag) => (
+            <span
+              key={tag}
+              className="text-xs px-3 py-1.5 rounded-full bg-surface border border-primary-light/30 text-primary font-medium"
+            >
+              {tag}
+            </span>
+          ))}
         </div>
 
         {/* Destination input */}

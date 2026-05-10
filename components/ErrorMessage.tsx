@@ -12,7 +12,7 @@ export default function ErrorMessage({ message, onRetry }: ErrorMessageProps) {
       {onRetry && (
         <button
           onClick={onRetry}
-          className="min-h-[44px] min-w-[44px] px-5 py-2 rounded-full bg-red-600 text-white text-sm font-medium active:scale-95 transition-transform"
+          className="min-h-[44px] min-w-[44px] px-5 py-2 rounded-full bg-accent text-white text-sm font-medium active:scale-95 transition-transform shadow-md"
         >
           Cuba lagi (Try again)
         </button>

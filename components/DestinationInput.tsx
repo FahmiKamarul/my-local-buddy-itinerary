@@ -35,7 +35,7 @@ export default function DestinationInput({ onSubmit, loading }: DestinationInput
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-3">
       <div className="space-y-1">
-        <label htmlFor="destination" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="destination" className="block text-sm font-medium text-primary">
           Where you going lah?
         </label>
         <input
@@ -48,7 +48,7 @@ export default function DestinationInput({ onSubmit, loading }: DestinationInput
           }}
           placeholder="e.g. Melaka, Penang, KL..."
           disabled={loading}
-          className="w-full min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-4 py-3 text-base text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+          className="w-full min-h-[44px] rounded-xl border border-primary-light/40 bg-surface px-4 py-3 text-base text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent disabled:opacity-50 transition-all"
           autoComplete="off"
           autoFocus
         />
@@ -60,7 +60,7 @@ export default function DestinationInput({ onSubmit, loading }: DestinationInput
       <button
         type="submit"
         disabled={loading}
-        className="w-full min-h-[44px] rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full min-h-[44px] rounded-xl bg-accent hover:bg-accent-hover px-6 py-3 text-base font-semibold text-white shadow-lg shadow-accent/25 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? "Jom, loading..." : "Jom Plan! 🗺️"}
       </button>

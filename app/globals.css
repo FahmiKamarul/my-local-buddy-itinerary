@@ -1,55 +1,73 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F8F5EE;
+  --foreground: #1a2a3a;
+  --primary: #346A8C;
+  --primary-light: #7EBADF;
+  --accent: #F78B4B;
+  --accent-hover: #e57a3a;
+  --surface: #ffffff;
+  --surface-alt: #f0ede6;
+  --muted: #6b7a8a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
   /*
    * Mobile-first breakpoints (320px base).
-   * The base (no prefix) targets 320px+ screens.
-   * Override Tailwind v4 defaults to align with our 320px–428px mobile target.
    */
-  --breakpoint-xs: 20rem;   /* 320px — minimum supported mobile width */
-  --breakpoint-sm: 26.75rem; /* 428px — maximum target mobile width */
-  --breakpoint-md: 48rem;   /* 768px — tablet */
-  --breakpoint-lg: 64rem;   /* 1024px — desktop */
-  --breakpoint-xl: 80rem;   /* 1280px */
-  --breakpoint-2xl: 96rem;  /* 1536px */
+  --breakpoint-xs: 20rem;
+  --breakpoint-sm: 26.75rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
 
-/* Mobile-first base styles — optimised for 320px–428px viewports */
+
+/* Mobile-first base styles */
 html {
-  /* Prevent horizontal overflow on mobile; allow scroll as fallback per Req 8.5 */
   overflow-x: hidden;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  /* Single-column vertical scroll layout */
-  min-width: 20rem; /* 320px */
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  min-width: 20rem;
   overflow-x: hidden;
 }
 
-/* Landscape reflow — ensure content is accessible without horizontal scroll */
+/* Landscape reflow */
 @media (orientation: landscape) and (max-height: 500px) {
   body {
-    /* Allow horizontal scroll as fallback if reflow fails (Req 8.5) */
     overflow-x: auto;
   }
+}
+
+/* Custom scrollbar for travel vibe */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-alt);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-light);
+  border-radius: 3px;
 }

@@ -42,7 +42,6 @@ export default function ItineraryPage() {
 
     const destination = sessionStorage.getItem("mybuddy_destination") ?? "Malaysia";
 
-    // Store the date for display
     sessionStorage.setItem("mybuddy_trip_date", date);
 
     try {
@@ -99,8 +98,8 @@ export default function ItineraryPage() {
       <div className="flex flex-col items-center justify-center min-h-screen px-5 py-10">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center space-y-1">
-            <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Set Your Time ⏰</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <h1 className="text-xl font-bold text-primary">Set Your Time ⏰</h1>
+            <p className="text-xs text-muted">
               You picked {acceptedCards.length} cards — now set your day window
             </p>
           </div>
@@ -129,8 +128,8 @@ export default function ItineraryPage() {
         <div className="w-full max-w-sm mx-auto space-y-5">
           {/* Header */}
           <div className="text-center space-y-1">
-            <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Your Itinerary 🗓️</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <h1 className="text-xl font-bold text-primary">Your Itinerary 🗓️</h1>
+            <p className="text-xs text-muted">
               {itinerary.destination} • {sessionStorage.getItem("mybuddy_trip_date") ?? ""} • {itinerary.arrivalTime} – {itinerary.departureTime}
             </p>
           </div>
@@ -144,7 +143,7 @@ export default function ItineraryPage() {
           {/* Start over */}
           <button
             onClick={() => router.push("/")}
-            className="w-full min-h-[44px] rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-600 dark:text-zinc-300 active:scale-95 transition-transform"
+            className="w-full min-h-[44px] rounded-xl border border-primary-light/30 px-4 py-3 text-sm font-medium text-primary hover:bg-surface-alt active:scale-95 transition-all"
           >
             Plan another trip lah! 🔄
           </button>

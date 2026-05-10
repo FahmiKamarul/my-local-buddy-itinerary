@@ -24,8 +24,8 @@ export default function LoadingIndicator({ message }: { message?: string }) {
   return (
     <div className="flex flex-col items-center gap-4 py-8 px-4 text-center">
       {/* Spinner */}
-      <div className="w-10 h-10 rounded-full border-4 border-amber-300 border-t-amber-600 animate-spin" />
-      <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-xs">
+      <div className="w-10 h-10 rounded-full border-4 border-primary-light/30 border-t-accent animate-spin" />
+      <p className="text-sm text-muted max-w-xs">
         {message ?? MESSAGES[idx]}
       </p>
     </div>

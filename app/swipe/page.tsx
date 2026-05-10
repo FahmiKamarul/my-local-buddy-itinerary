@@ -27,12 +27,10 @@ export default function SwipePage() {
 
   function handleComplete(acceptedCards: Card[], answers: Record<string, "Yes" | "No">) {
     if (acceptedCards.length < 2) {
-      // Not enough cards — show restart message
       setError("Eh, swipe a few more lah! We need at least 2 cards to plan your trip.");
       return;
     }
 
-    // Store accepted cards and navigate to itinerary page
     sessionStorage.setItem("mybuddy_accepted", JSON.stringify(acceptedCards));
     sessionStorage.setItem("mybuddy_answers", JSON.stringify(answers));
     router.push("/itinerary");
@@ -61,8 +59,8 @@ export default function SwipePage() {
       <div className="w-full max-w-sm mx-auto space-y-4">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-lg font-bold text-zinc-800 dark:text-zinc-100">Swipe Your Picks 👆</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Right = Yes, Left = Nope</p>
+          <h1 className="text-lg font-bold text-primary">Swipe Your Picks 👆</h1>
+          <p className="text-xs text-muted">Right = Yes, Left = Nope</p>
         </div>
 
         {/* Card stack */}

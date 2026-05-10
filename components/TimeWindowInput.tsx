@@ -10,7 +10,7 @@ interface TimeWindowInputProps {
 
 function getTodayDate(): string {
   const d = new Date();
-  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+  return d.toISOString().split("T")[0];
 }
 
 export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputProps) {
@@ -38,13 +38,13 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-4">
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         Set your trip date and time window so we can plan your day properly lah!
       </p>
 
       {/* Date picker */}
       <div className="space-y-1">
-        <label htmlFor="trip-date" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
+        <label htmlFor="trip-date" className="block text-xs font-medium text-primary uppercase tracking-wide">
           Trip Date
         </label>
         <input
@@ -54,14 +54,14 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
           onChange={(e) => { setDate(e.target.value); setError(null); }}
           min={getTodayDate()}
           disabled={loading}
-          className="w-full min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-base text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+          className="w-full min-h-[44px] rounded-xl border border-primary-light/40 bg-surface px-3 py-2 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent disabled:opacity-50 transition-all"
         />
       </div>
 
       {/* Time pickers */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label htmlFor="arrival" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
+          <label htmlFor="arrival" className="block text-xs font-medium text-primary uppercase tracking-wide">
             Start Time
           </label>
           <input
@@ -70,11 +70,11 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
             value={arrival}
             onChange={(e) => { setArrival(e.target.value); setError(null); }}
             disabled={loading}
-            className="w-full min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-base text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+            className="w-full min-h-[44px] rounded-xl border border-primary-light/40 bg-surface px-3 py-2 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent disabled:opacity-50 transition-all"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="departure" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
+          <label htmlFor="departure" className="block text-xs font-medium text-primary uppercase tracking-wide">
             End Time
           </label>
           <input
@@ -83,17 +83,17 @@ export default function TimeWindowInput({ onConfirm, loading }: TimeWindowInputP
             value={departure}
             onChange={(e) => { setDeparture(e.target.value); setError(null); }}
             disabled={loading}
-            className="w-full min-h-[44px] rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-base text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+            className="w-full min-h-[44px] rounded-xl border border-primary-light/40 bg-surface px-3 py-2 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent disabled:opacity-50 transition-all"
           />
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full min-h-[44px] rounded-xl bg-amber-500 px-6 py-3 text-base font-semibold text-white active:scale-95 transition-transform disabled:opacity-50"
+        className="w-full min-h-[44px] rounded-xl bg-accent hover:bg-accent-hover px-6 py-3 text-base font-semibold text-white shadow-lg shadow-accent/25 active:scale-95 transition-all disabled:opacity-50"
       >
         {loading ? "Generating lah..." : "Generate My Itinerary 🗓️"}
       </button>
