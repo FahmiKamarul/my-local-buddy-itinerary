@@ -10,6 +10,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /*
+   * Mobile-first breakpoints (320px base).
+   * The base (no prefix) targets 320px+ screens.
+   * Override Tailwind v4 defaults to align with our 320px–428px mobile target.
+   */
+  --breakpoint-xs: 20rem;   /* 320px — minimum supported mobile width */
+  --breakpoint-sm: 26.75rem; /* 428px — maximum target mobile width */
+  --breakpoint-md: 48rem;   /* 768px — tablet */
+  --breakpoint-lg: 64rem;   /* 1024px — desktop */
+  --breakpoint-xl: 80rem;   /* 1280px */
+  --breakpoint-2xl: 96rem;  /* 1536px */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,8 +31,25 @@
   }
 }
 
+/* Mobile-first base styles — optimised for 320px–428px viewports */
+html {
+  /* Prevent horizontal overflow on mobile; allow scroll as fallback per Req 8.5 */
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* Single-column vertical scroll layout */
+  min-width: 20rem; /* 320px */
+  overflow-x: hidden;
+}
+
+/* Landscape reflow — ensure content is accessible without horizontal scroll */
+@media (orientation: landscape) and (max-height: 500px) {
+  body {
+    /* Allow horizontal scroll as fallback if reflow fails (Req 8.5) */
+    overflow-x: auto;
+  }
 }
