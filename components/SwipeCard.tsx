@@ -19,26 +19,55 @@ const FLY_OUT_DISTANCE = 500;
 export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop, triggerExit }: SwipeCardProps) {
   const x = useMotionValue(0);
 
+  // Separate motion value for button-triggered overlay (independent of x)
+  const buttonOverlay = useMotionValue(0);
+
   const rotate = useTransform(x, [-200, 200], [-18, 18]);
-  const greenOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1]);
-  const redOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0]);
+
+  // Drag-based overlay opacity
+  const dragGreenOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1]);
+  const dragRedOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0]);
+
+  // Combined: show overlay from drag OR from button trigger
+  // For green (right): max of drag-based and button-based (when triggerExit === "right")
+  const greenOpacity = useTransform(
+    [dragGreenOpacity, buttonOverlay],
+    ([drag, btn]: number[]) => triggerExit === "right" ? Math.max(drag, btn) : drag
+  );
+  const redOpacity = useTransform(
+    [dragRedOpacity, buttonOverlay],
+    ([drag, btn]: number[]) => triggerExit === "left" ? Math.max(drag, btn) : drag
+  );
 
   // Handle programmatic exit (button press)
+  // Show overlay on stationary card for 0.5s, then swipe off
   useEffect(() => {
     if (!triggerExit) return;
 
-    const target = triggerExit === "right" ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE;
+    const flyTarget = triggerExit === "right" ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE;
 
-    animate(x, target, {
+    // Step 1: Instantly show the overlay (card stays still)
+    animate(buttonOverlay, 1, {
       type: "tween",
-      duration: 0.4,
-      ease: [0.4, 0, 0.2, 1],
+      duration: 0.15,
+      ease: "easeOut",
       onComplete: () => {
-        if (triggerExit === "right") {
-          onSwipeRight();
-        } else {
-          onSwipeLeft();
-        }
+        // Step 2: Hold for 0.5s so user reads the label
+        setTimeout(() => {
+          // Step 3: Fly off screen
+          animate(x, flyTarget, {
+            type: "tween",
+            duration: 0.35,
+            ease: [0.4, 0, 0.2, 1],
+            onComplete: () => {
+              if (triggerExit === "right") {
+                onSwipeRight();
+              } else {
+                onSwipeLeft();
+              }
+            },
+          });
+        }, 500);
       },
     });
   }, [triggerExit]);
