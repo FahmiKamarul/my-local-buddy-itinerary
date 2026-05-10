@@ -12,45 +12,30 @@ import {
 import { ItineraryResultSchema, type ActivityCard, type DaySchedule } from "@/lib/schemas";
 
 /**
- * Distributes activity cards across multiple days, respecting the daily time window.
- * Returns an array of card groups — one per day.
+ * Distributes activity cards evenly across multiple days.
+ * Instead of greedily filling each day, splits cards roughly equally
+ * so each day has a balanced schedule.
  */
 function distributeCardsAcrossDays(
   cards: ActivityCardWithBuffer[],
   availableMinutesPerDay: number,
   tripDays: number
 ): ActivityCardWithBuffer[][] {
+  if (cards.length === 0) return [];
+  if (tripDays <= 1) return [cards];
+
+  // Calculate how many cards per day (roughly equal split)
+  const cardsPerDay = Math.ceil(cards.length / tripDays);
   const days: ActivityCardWithBuffer[][] = [];
-  let remaining = [...cards];
 
   for (let day = 0; day < tripDays; day++) {
-    if (remaining.length === 0) break;
-
-    const dayCards: ActivityCardWithBuffer[] = [];
-    let dayMinutes = 0;
-
-    // Greedily fill each day
-    const toKeep: ActivityCardWithBuffer[] = [];
-    for (const card of remaining) {
-      if (dayMinutes + card.bufferedDuration <= availableMinutesPerDay) {
-        dayCards.push(card);
-        dayMinutes += card.bufferedDuration;
-      } else {
-        toKeep.push(card);
-      }
-    }
+    const start = day * cardsPerDay;
+    const end = Math.min(start + cardsPerDay, cards.length);
+    const dayCards = cards.slice(start, end);
 
     if (dayCards.length > 0) {
       days.push(dayCards);
     }
-    remaining = toKeep;
-  }
-
-  // If there are leftover cards, add them to the last day
-  if (remaining.length > 0 && days.length > 0) {
-    days[days.length - 1].push(...remaining);
-  } else if (remaining.length > 0) {
-    days.push(remaining);
   }
 
   return days;
