@@ -13,11 +13,11 @@ export const RECOGNISED_LOCATIONS: string[] = [
 ];
 
 /**
- * Returns true if the input matches a recognised Malaysian location.
+ * Returns true if the input is a valid location string.
  *
- * Matching rules:
- * - Case-insensitive, leading/trailing whitespace is trimmed.
- * - Input must contain between 1 and 100 non-whitespace characters (Requirement 1.2).
+ * Accepts any non-empty string up to 100 non-whitespace characters.
+ * Previously restricted to a whitelist — now open to all destinations
+ * since Google Places handles validation of real places.
  */
 export function isRecognisedLocation(input: string): boolean {
   const trimmed = input.trim();
@@ -28,6 +28,5 @@ export function isRecognisedLocation(input: string): boolean {
     return false;
   }
 
-  const normalised = trimmed.toLowerCase();
-  return RECOGNISED_LOCATIONS.some(loc => loc.toLowerCase() === normalised);
+  return true;
 }

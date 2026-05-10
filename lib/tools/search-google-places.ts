@@ -52,6 +52,7 @@ export const GooglePlaceSchema = z.object({
   openNow: z.boolean().optional(),
   primaryType: z.string().optional(),
   editorialSummary: z.string().optional(),
+  photoUrl: z.string().optional(),
 });
 
 export type GooglePlace = z.infer<typeof GooglePlaceSchema>;
@@ -109,6 +110,16 @@ export function mapPlaceResponse(apiPlace: Record<string, unknown>): GooglePlace
   const location = apiPlace.location as { latitude: number; longitude: number } | undefined;
   const currentOpeningHours = apiPlace.currentOpeningHours as { openNow?: boolean } | undefined;
   const editorialSummary = apiPlace.editorialSummary as { text?: string } | undefined;
+  const photos = apiPlace.photos as Array<{ name?: string }> | undefined;
+
+  // Build photo URL from the first photo's resource name
+  let photoUrl: string | undefined;
+  if (photos && photos.length > 0 && photos[0].name) {
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (apiKey) {
+      photoUrl = `https://places.googleapis.com/v1/${photos[0].name}/media?maxHeightPx=400&maxWidthPx=400&key=${apiKey}`;
+    }
+  }
 
   return {
     placeId: apiPlace.id as string,
@@ -125,6 +136,7 @@ export function mapPlaceResponse(apiPlace: Record<string, unknown>): GooglePlace
     openNow: currentOpeningHours?.openNow,
     primaryType: apiPlace.primaryType as string | undefined,
     editorialSummary: editorialSummary?.text,
+    photoUrl,
   };
 }
 
@@ -141,6 +153,8 @@ export function mapPlaceResponse(apiPlace: Record<string, unknown>): GooglePlace
  */
 export async function execute(input: SearchGooglePlacesInput): Promise<GooglePlace[]> {
   try {
+    const t0 = performance.now();
+
     // Step 1: Retrieve API key from environment
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
@@ -171,6 +185,7 @@ export async function execute(input: SearchGooglePlacesInput): Promise<GooglePla
             'places.currentOpeningHours',
             'places.primaryType',
             'places.editorialSummary',
+            'places.photos',
           ].join(','),
         },
         body: JSON.stringify(requestBody),
@@ -189,6 +204,7 @@ export async function execute(input: SearchGooglePlacesInput): Promise<GooglePla
       .slice(0, input.maxResults)
       .map(mapPlaceResponse);
 
+    console.log(`[google-places] "${input.query}" → ${places.length} results in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
     return places;
   } catch (error) {
     console.error('Google Places tool error:', error);
@@ -207,8 +223,8 @@ export const searchGooglePlacesTool = tool<SearchGooglePlacesInput, GooglePlace[
   description:
     'Search for places in Malaysia using Google Places API. ' +
     'Returns structured place data including name, address, coordinates, ' +
-    'rating, price level, and opening status. Use this to find attractions, ' +
-    'restaurants, cafes, and activities for itinerary planning.',
+    'rating, price level, opening status, and a photo URL. ' +
+    'Use this to find attractions, restaurants, cafes, and activities for itinerary planning.',
 
   inputSchema: SearchGooglePlacesInputSchema,
 

@@ -56,6 +56,7 @@ export default function ItineraryPage() {
     const destination = sessionStorage.getItem("mybuddy_destination") ?? "Malaysia";
     const arrivalTime = sessionStorage.getItem("mybuddy_arrival_time") ?? "09:00";
     const departureTime = sessionStorage.getItem("mybuddy_departure_time") ?? "18:00";
+    const tripDays = parseInt(sessionStorage.getItem("mybuddy_trip_days") ?? "1", 10);
     const answersRaw = sessionStorage.getItem("mybuddy_answers");
     const answers = answersRaw ? JSON.parse(answersRaw) : undefined;
 
@@ -67,6 +68,7 @@ export default function ItineraryPage() {
           acceptedCards: cards,
           arrivalTime,
           departureTime,
+          tripDays,
           destination,
           answers,
         }),

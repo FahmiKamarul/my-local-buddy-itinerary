@@ -112,21 +112,49 @@ export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop, trig
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="select-none"
     >
-      <div className="relative rounded-3xl bg-surface shadow-xl shadow-primary/10 overflow-hidden min-h-[420px] flex flex-col border border-primary-light/20">
-        {/* Coloured header strip */}
-        <div className={`h-2 w-full ${isActivity ? "bg-accent" : "bg-primary-light"}`} />
+      <div className="relative rounded-3xl bg-surface shadow-xl shadow-primary/10 overflow-hidden min-h-[340px] flex flex-col border border-primary-light/20">
+        {/* Place photo */}
+        {isActivity && card.imageUrl && (
+          <div className="relative w-full h-32 overflow-hidden">
+            <img
+              src={card.imageUrl}
+              alt={card.title}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
+          </div>
+        )}
+
+        {/* Coloured header strip (only when no image) */}
+        {!(isActivity && card.imageUrl) && (
+          <div className={`h-2 w-full ${isActivity ? "bg-accent" : "bg-primary-light"}`} />
+        )}
 
         {/* Card body */}
-        <div className="flex flex-col flex-1 p-6 gap-4">
-          {/* Type badge */}
-          <span className={`self-start text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full ${
-            isActivity ? "bg-accent/10 text-accent" : "bg-primary-light/20 text-primary"
-          }`}>
-            {isActivity ? "Activity" : "Quick Question"}
-          </span>
+        <div className="flex flex-col flex-1 p-5 gap-3">
+          {/* Top row: badge + rating */}
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-semibold uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
+              isActivity ? "bg-accent/10 text-accent" : "bg-primary-light/20 text-primary"
+            }`}>
+              {isActivity ? card.category || "Activity" : "Quick Question"}
+            </span>
+
+            {/* Rating & reviews */}
+            {isActivity && card.rating && (
+              <span className="text-xs text-muted flex items-center gap-1">
+                <span className="text-yellow-500">⭐</span>
+                <span className="font-semibold text-foreground">{card.rating}</span>
+                {card.reviewCount && (
+                  <span>({card.reviewCount >= 1000 ? `${(card.reviewCount / 1000).toFixed(1)}k` : card.reviewCount})</span>
+                )}
+              </span>
+            )}
+          </div>
 
           {/* Title */}
-          <h2 className="text-xl font-bold text-foreground leading-snug">{card.title}</h2>
+          <h2 className="text-lg font-bold text-foreground leading-snug">{card.title}</h2>
 
           {/* Description */}
           <p className="text-sm text-muted leading-relaxed flex-1">{card.description}</p>
@@ -136,7 +164,7 @@ export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop, trig
             <div className="grid grid-cols-3 gap-2 pt-2 border-t border-primary-light/20">
               <div className="text-center">
                 <p className="text-xs text-muted uppercase tracking-wide">Duration</p>
-                <p className="text-sm font-semibold text-foreground">{card.baseDuration}m</p>
+                <p className="text-sm font-semibold text-foreground">{card.baseDuration}min</p>
               </div>
               <div className="text-center">
                 <p className="text-xs text-muted uppercase tracking-wide">Price</p>
@@ -167,7 +195,7 @@ export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop, trig
           className="absolute inset-0 bg-green-400/30 rounded-3xl flex items-center justify-center pointer-events-none"
         >
           <span className="text-5xl font-black text-green-600 rotate-[-20deg] border-4 border-green-600 px-4 py-1 rounded-xl">
-            BOLEH!
+            YES!
           </span>
         </motion.div>
 
@@ -176,7 +204,7 @@ export default function SwipeCard({ card, onSwipeLeft, onSwipeRight, isTop, trig
           className="absolute inset-0 bg-red-400/30 rounded-3xl flex items-center justify-center pointer-events-none"
         >
           <span className="text-5xl font-black text-red-600 rotate-[20deg] border-4 border-red-600 px-4 py-1 rounded-xl">
-            PASS
+            NO
           </span>
         </motion.div>
       </div>

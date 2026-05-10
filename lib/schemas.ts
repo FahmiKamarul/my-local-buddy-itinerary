@@ -21,6 +21,9 @@ export const CardSchema = z.object({
   category: z
     .enum(['Food', 'Culture', 'Nature', 'Shopping', 'Entertainment', 'Other'])
     .optional(),
+  imageUrl: z.string().url().optional(),
+  rating: z.number().min(0).max(5).optional(),
+  reviewCount: z.number().int().nonnegative().optional(),
 });
 
 export type Card = z.infer<typeof CardSchema>;
@@ -44,6 +47,9 @@ export const ActivityCardSchema = CardSchema.extend({
     'Entertainment',
     'Other',
   ]),
+  imageUrl: z.string().url().optional(),
+  rating: z.number().min(0).max(5).optional(),
+  reviewCount: z.number().int().nonnegative().optional(),
 });
 
 export type ActivityCard = z.infer<typeof ActivityCardSchema>;

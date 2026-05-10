@@ -23,7 +23,7 @@ export default function DestinationInput({ onSubmit, loading }: DestinationInput
 
     if (!isRecognisedLocation(trimmed)) {
       setError(
-        `Alamak, we don't recognise "${trimmed}" lah! Try "Melaka", "Penang", "KL", "JB" or "Ipoh" — boleh?`
+        "Alamak, that doesn't look right lah! Type a place name (1–100 characters) — anywhere in Malaysia boleh!"
       );
       return;
     }
@@ -46,7 +46,7 @@ export default function DestinationInput({ onSubmit, loading }: DestinationInput
             setValue(e.target.value);
             if (error) setError(null);
           }}
-          placeholder="e.g. Melaka, Penang, KL..."
+          placeholder="e.g. Melaka, Penang, Sarawak, Langkawi..."
           disabled={loading}
           className="w-full min-h-[44px] rounded-xl border border-primary-light/40 bg-surface px-4 py-3 text-base text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent disabled:opacity-50 transition-all"
           autoComplete="off"
