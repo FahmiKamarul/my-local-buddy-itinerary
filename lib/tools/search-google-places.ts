@@ -112,13 +112,11 @@ export function mapPlaceResponse(apiPlace: Record<string, unknown>): GooglePlace
   const editorialSummary = apiPlace.editorialSummary as { text?: string } | undefined;
   const photos = apiPlace.photos as Array<{ name?: string }> | undefined;
 
-  // Build photo URL from the first photo's resource name
+  // Build photo URL using our own proxy route (avoids CORS and API key exposure)
   let photoUrl: string | undefined;
   if (photos && photos.length > 0 && photos[0].name) {
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (apiKey) {
-      photoUrl = `https://places.googleapis.com/v1/${photos[0].name}/media?maxHeightPx=400&maxWidthPx=400&key=${apiKey}`;
-    }
+    // Encode the photo resource name for use in our proxy
+    photoUrl = `/api/place-photo?ref=${encodeURIComponent(photos[0].name)}`;
   }
 
   return {

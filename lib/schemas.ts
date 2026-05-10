@@ -21,7 +21,7 @@ export const CardSchema = z.object({
   category: z
     .enum(['Food', 'Culture', 'Nature', 'Shopping', 'Entertainment', 'Other'])
     .optional(),
-  imageUrl: z.string().url().optional(),
+  imageUrl: z.string().optional(),
   rating: z.number().min(0).max(5).optional(),
   reviewCount: z.number().int().nonnegative().optional(),
 });
@@ -47,7 +47,7 @@ export const ActivityCardSchema = CardSchema.extend({
     'Entertainment',
     'Other',
   ]),
-  imageUrl: z.string().url().optional(),
+  imageUrl: z.string().optional(),
   rating: z.number().min(0).max(5).optional(),
   reviewCount: z.number().int().nonnegative().optional(),
 });

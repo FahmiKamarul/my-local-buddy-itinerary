@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { generateText, generateObject, stepCountIs } from "ai";
+import { generateText, generateObject } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { isRecognisedLocation } from "@/lib/locations";
 import { CardDeckSchema } from "@/lib/schemas";
-import { searchGooglePlacesTool } from "@/lib/tools/search-google-places";
 
 /**
  * Location coordinates for biasing Google Places searches.
@@ -184,7 +183,9 @@ Activities should be REAL places in ${destination} with accurate pricing and dur
 }
 
 /**
- * Uses AI with tool calling (searchGooglePlaces) to generate enriched cards.
+ * Uses AI with pre-fetched Google Places data to generate enriched cards.
+ * Strategy: We call Google Places ourselves first, then give the AI the results
+ * as context. This avoids slow multi-step tool calling.
  */
 async function generateDeckWithToolCalling(
   destination: string,
@@ -192,49 +193,91 @@ async function generateDeckWithToolCalling(
   counts: { questions: number; activities: number },
   preferences?: { question: string; answer: string }[]
 ): Promise<z.infer<typeof AIDeckSchema> | null> {
-  const prompt = buildToolCallingPrompt(destination, tripDays, counts, preferences);
-
   const hasGemini = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
   const hasDeepSeek = process.env.DEEP_SEEK_API_KEY && process.env.DEEP_SEEK_API_KEY !== "your_deepseek_api_key_here";
 
+  // Step 1: Fetch places from Google Places API directly (fast, parallel)
+  const { execute: searchPlaces } = await import("@/lib/tools/search-google-places");
+
+  const t0 = performance.now();
+  const [attractionsResult, foodResult] = await Promise.all([
+    searchPlaces({ query: `top attractions things to do in ${destination}`, maxResults: 10 }),
+    searchPlaces({ query: `best food restaurants hawker in ${destination}`, maxResults: 8 }),
+  ]);
+  console.log(`[generate-deck] Google Places fetched in ${((performance.now() - t0) / 1000).toFixed(1)}s (${attractionsResult.length + foodResult.length} places)`);
+
+  // Deduplicate by placeId
+  const allPlaces = [...attractionsResult, ...foodResult];
+  const uniquePlaces = allPlaces.filter((p, i) => allPlaces.findIndex((q) => q.placeId === p.placeId) === i);
+
+  if (uniquePlaces.length === 0) {
+    console.warn("[generate-deck] No places found from Google, skipping enrichment");
+    return null;
+  }
+
+  // Step 2: Build prompt with pre-fetched place data
+  const placesContext = uniquePlaces.map((p) =>
+    `- ${p.name} | ${p.formattedAddress} | Rating: ${p.rating ?? "N/A"} (${p.userRatingCount ?? 0} reviews) | Types: ${p.types.join(", ")} | Open: ${p.openNow ?? "unknown"} | Photo: ${p.photoUrl ?? "none"}`
+  ).join("\n");
+
+  const preferencesContext = preferences && preferences.length > 0
+    ? `\nUser Preferences:\n${preferences.map((p) => `- ${p.question}: ${p.answer}`).join("\n")}`
+    : "";
+
+  const prompt = `You are MY Buddy, a Malaysian trip planner. Pick ${counts.activities} activities from the places below for a ${tripDays}-day trip to ${destination}.${preferencesContext}
+
+AVAILABLE PLACES (from Google):
+${placesContext}
+
+Return a JSON object: { "cards": [...] }. Each card:
+- title: Place name exactly as listed
+- description: 1-2 sentence Manglish description with slang (Lepak, Makan, Shiok, Boleh, lah)
+- location: Address from the list
+- baseDuration: minutes (30-90 typical)
+- price: "Free" or "RMX" or "RMX-RMY"
+- priority: "High" (rating 4.5+), "Medium" (4.0+), "Low" (below 4.0)
+- category: "Food", "Culture", "Nature", "Shopping", "Entertainment", or "Other"
+- rating: number from the list
+- reviewCount: number from the list
+- photoUrl: photo URL from the list (copy exactly, or "none" if unavailable)
+
+Mix: 30% High, 40% Medium, 30% Low. Include 2+ Food spots. JSON only, no markdown.`;
+
+  // Step 3: Single LLM call (no tool calling, much faster)
   let textResult: string | null = null;
 
   // Try Gemini first
   if (hasGemini) {
     try {
-      const t0 = performance.now();
-      console.log("[generate-deck] Starting Gemini tool-calling...");
+      const t1 = performance.now();
+      console.log("[generate-deck] Starting Gemini (with places context)...");
       const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
       const result = await generateText({
         model: google("gemini-2.5-flash"),
-        tools: { search_google_places: searchGooglePlacesTool },
-        stopWhen: stepCountIs(12),
         prompt,
       });
-      console.log(`[generate-deck] Gemini tool-calling completed in ${((performance.now() - t0) / 1000).toFixed(1)}s (${result.steps.length} steps)`);
+      console.log(`[generate-deck] Gemini completed in ${((performance.now() - t1) / 1000).toFixed(1)}s`);
       textResult = result.text;
     } catch (geminiErr: unknown) {
       const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      console.warn("Gemini tool-calling failed:", errMsg);
+      console.warn("Gemini failed:", errMsg);
       if (!hasDeepSeek) throw geminiErr;
     }
   }
 
   // Fallback to DeepSeek
   if (!textResult && hasDeepSeek) {
-    const t0 = performance.now();
-    console.log("[generate-deck] Starting DeepSeek tool-calling...");
+    const t1 = performance.now();
+    console.log("[generate-deck] Starting DeepSeek (with places context)...");
     const deepseek = createOpenAI({
       apiKey: process.env.DEEP_SEEK_API_KEY,
       baseURL: "https://api.deepseek.com",
     });
     const result = await generateText({
       model: deepseek.chat("deepseek-chat"),
-      tools: { search_google_places: searchGooglePlacesTool },
-      stopWhen: stepCountIs(4),
       prompt,
     });
-    console.log(`[generate-deck] DeepSeek tool-calling completed in ${((performance.now() - t0) / 1000).toFixed(1)}s (${result.steps.length} steps)`);
+    console.log(`[generate-deck] DeepSeek completed in ${((performance.now() - t1) / 1000).toFixed(1)}s`);
     textResult = result.text;
   }
 
@@ -246,18 +289,48 @@ async function generateDeckWithToolCalling(
     const jsonMatch = textResult.match(/```(?:json)?\s*([\s\S]*?)```/) ||
       textResult.match(/(\{[\s\S]*"cards"[\s\S]*\})/);
 
+    let deck: z.infer<typeof AIDeckSchema> | null = null;
+
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[1]);
       const validated = AIDeckSchema.safeParse(parsed);
-      if (validated.success) return validated.data;
+      if (validated.success) deck = validated.data;
     }
 
-    // Try parsing the entire text as JSON
-    const directParse = JSON.parse(textResult);
-    const validated = AIDeckSchema.safeParse(directParse);
-    if (validated.success) return validated.data;
+    if (!deck) {
+      // Try parsing the entire text as JSON
+      const directParse = JSON.parse(textResult);
+      const validated = AIDeckSchema.safeParse(directParse);
+      if (validated.success) deck = validated.data;
+    }
+
+    // Enrich cards with photos from our pre-fetched places (match by title/name)
+    if (deck && uniquePlaces.length > 0) {
+      deck.cards = deck.cards.map((card) => {
+        if (card.photoUrl && card.photoUrl !== "none") return card;
+
+        const match = uniquePlaces.find((p) =>
+          p.name && card.title && (
+            card.title.toLowerCase().includes(p.name.toLowerCase()) ||
+            p.name.toLowerCase().includes(card.title.toLowerCase())
+          )
+        );
+
+        if (match) {
+          return {
+            ...card,
+            photoUrl: match.photoUrl || undefined,
+            rating: card.rating || match.rating,
+            reviewCount: card.reviewCount || match.userRatingCount,
+          };
+        }
+        return card;
+      });
+    }
+
+    return deck;
   } catch {
-    console.warn("Failed to parse tool-calling response as JSON");
+    console.warn("Failed to parse AI response as JSON");
   }
 
   return null;
@@ -422,7 +495,7 @@ export async function POST(request: Request) {
             price: normalizePrice(card.price || "Free"),
             priority: VALID_PRIORITIES.includes(card.priority ?? "") ? card.priority as "High" | "Medium" | "Low" : "Medium",
             category: VALID_CATEGORIES.includes(card.category ?? "") ? card.category as "Food" | "Culture" | "Nature" | "Shopping" | "Entertainment" | "Other" : "Other",
-            ...(card.photoUrl ? { imageUrl: card.photoUrl } : {}),
+            ...(card.photoUrl && card.photoUrl !== "none" ? { imageUrl: card.photoUrl } : {}),
             ...(card.rating ? { rating: card.rating } : {}),
             ...(card.reviewCount ? { reviewCount: card.reviewCount } : {}),
           };
