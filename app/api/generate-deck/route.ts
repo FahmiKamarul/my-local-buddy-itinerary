@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { isRecognisedLocation } from "@/lib/locations";
 import { CardDeckSchema } from "@/lib/schemas";
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     }
 
     const counts = getCardCount(tripDays);
-    const hasApiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "your_openai_api_key_here";
+    const hasApiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
 
     let deck: { destination: string; cards: unknown[] };
 
@@ -124,8 +124,10 @@ export async function POST(request: Request) {
       // --- AI-powered card generation ---
       const prompt = buildDeckPrompt(destination, tripDays, counts);
 
+      const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+
       const { object } = await generateObject({
-        model: openai("gpt-4o-mini"),
+        model: google("gemini-2.0-flash"),
         schema: AIDeckSchema,
         prompt,
         maxRetries: 3,

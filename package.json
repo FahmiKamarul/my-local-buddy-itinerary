@@ -9,6 +9,7 @@
     "test": "jest --runInBand"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.71",
     "@ai-sdk/openai": "^3.0.63",
     "ai": "^6.0.177",
     "framer-motion": "^12.38.0",

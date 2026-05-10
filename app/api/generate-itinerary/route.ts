@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateText, stepCountIs } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { validateTimeWindow, parseHHMM } from "@/lib/time-utils";
 import {
   calculateBufferedDuration,
@@ -113,8 +113,10 @@ Please call the calculate_itinerary tool THREE times — once for each route typ
 
 Use ALL the accepted activity cards for each call. The tool will handle dropping cards that don't fit.`;
 
+  const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+
   const { steps } = await generateText({
-    model: openai("gpt-4o-mini"),
+    model: google("gemini-2.0-flash"),
     tools: { calculate_itinerary: calculateItineraryTool },
     stopWhen: stepCountIs(10),
     prompt,
@@ -169,7 +171,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const hasApiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "your_openai_api_key_here";
+    const hasApiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_gemini_api_key_here";
 
     let itinerary;
 
